@@ -1,0 +1,4 @@
+﻿User-agent: *
+Allow: /
+
+Sitemap: https://bharat-maanak-diginirikshak.vercel.app/sitemap.xml
