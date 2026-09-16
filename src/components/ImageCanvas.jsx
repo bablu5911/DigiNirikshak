@@ -132,7 +132,8 @@ export default function ImageCanvas({
     <div className="flex flex-col gap-3">
       
       {/* Precision Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 p-2.5 rounded-xl border border-slate-800 shadow-2xs">
+      {/* Interactive Crop & Region-Scan Toolbar (Light Theme) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -142,8 +143,8 @@ export default function ImageCanvas({
             }}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               isCropMode 
-                ? 'bg-cyan-400 text-slate-950 font-black shadow-[0_0_12px_rgba(6,182,212,0.4)]' 
-                : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750 hover:text-white shadow-2xs'
+                ? 'bg-blue-600 text-white font-bold shadow-xs' 
+                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs'
             }`}
           >
             <Crop className="w-3.5 h-3.5" />
@@ -151,7 +152,7 @@ export default function ImageCanvas({
           </button>
 
           {isCropMode && (
-            <span className="text-[10px] text-cyan-300 font-extrabold bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/40">
+            <span className="text-[10px] text-blue-700 font-extrabold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
               Drag over unclear text
             </span>
           )}
@@ -162,7 +163,7 @@ export default function ImageCanvas({
             <button
               type="button"
               onClick={handleExecuteCrop}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)] flex items-center gap-1.5 animate-pulse cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer"
             >
               <Check className="w-3.5 h-3.5 stroke-[3]" />
               <span>Rescan Selected Area</span>
@@ -173,14 +174,14 @@ export default function ImageCanvas({
             type="button"
             onClick={onResetView}
             title="Reset to full packaging image"
-            className="p-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-750 text-xs font-semibold shadow-2xs cursor-pointer"
+            className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 text-xs font-semibold shadow-2xs cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Main Image Viewport */}
+      {/* Main Image Viewport (Light Theme) */}
       <div 
         ref={containerRef}
         onMouseEnter={() => setIsHovering(true)}
@@ -188,7 +189,7 @@ export default function ImageCanvas({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        className={`relative bg-slate-950 rounded-2xl border border-slate-800/90 overflow-hidden flex items-center justify-center min-h-[380px] max-h-[500px] aspect-square select-none shadow-[inset_0_0_35px_rgba(0,0,0,0.9)] ${
+        className={`relative bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex items-center justify-center min-h-[380px] max-h-[500px] aspect-square select-none shadow-inner ${
           isCropMode ? 'cursor-crosshair' : 'cursor-default'
         }`}
       >

@@ -103,7 +103,7 @@ export default function Step3Notice({
     badge: '#DOCA-8941',
     timestamp: sampleMeta.timestamp || new Date().toISOString(),
     violationsCount: penaltyItems.length || violationCount,
-    penaltyDemand: totalCompoundingDemand > 0 ? `₹${totalCompoundingDemand.toLocaleString('en-IN')}` : '₹0 (COMPLIANT)',
+    noticeStatus: 'The challan will be issued to your company if explanation not submitted within 15 days',
     verificationUrl: `https://consumeraffairs.nic.in/verify?docket=${encodeURIComponent(inspectionRef)}`
   });
 
@@ -157,7 +157,7 @@ ${tamperResult?.hasTampering ? `*Price Tampering:* Factory MRP ₹${tamperResult
 *Violations Flagged:*
 ${issueList}
 ${isTampered ? `*Rule 18(2) Offense:* Base price ₹${tamperResult.originalPrice} overwritten to ₹${tamperResult.stickerPrice} (+${tamperResult.markupPercent}%)\n` : ''}${isScaleViolated ? `*Section 39 Short-Quantity:* ${activeScaleResult.illegalDeficitBeyondMpe || 'Deficit'}g shortage beyond Schedule I MPE\n` : ''}
-${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoundingDemand.toLocaleString('en-IN')} (Under Sec 36, 39 & 48)\n` : ''}*Statutory Action:* Form VI Notice dispatched. 15-day statutory compounding window initiated under Section 48 of Legal Metrology Act, 2009.`;
+*Statutory Directive:* Notice to Show Cause issued (15-day explanation period). If satisfactory explanation is not submitted within 15 days, the challan will be issued to your company.`;
     }
 
     try {
@@ -213,19 +213,21 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
           </button>
 
           {/* 1-CLICK COPY WHATSAPP / SMS DRAFT BUTTON */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.96 }}
             type="button"
             onClick={handleCopyDraft}
-            className={`px-4 py-2.5 rounded-xl border font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
+            className={`px-4 py-2.5 rounded-xl border font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-all duration-200 ${
               copiedDraft
-                ? 'bg-emerald-950 text-emerald-300 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                : 'border-slate-800 bg-slate-900 hover:bg-slate-850 text-slate-200 hover:border-cyan-500/40'
+                ? 'bg-emerald-950 text-emerald-300 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                : 'border-slate-800 bg-slate-900 hover:bg-slate-850 text-slate-200 hover:border-cyan-500/50 hover:shadow-[0_0_15px_rgba(6,182,212,0.15)]'
             }`}
             title="Copy formatted summary to paste into WhatsApp (NCH +91 8800001915) or SMS"
           >
             {copiedDraft ? (
               <>
-                <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                <Check className="w-4 h-4 text-emerald-400 stroke-[3] animate-pulse" />
                 <span className="text-emerald-300 font-black">Copied to Clipboard!</span>
               </>
             ) : (
@@ -234,14 +236,14 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
                 <span>{isOfficer ? 'Copy Dispatch Summary' : 'Copy NCH WhatsApp / SMS Draft'}</span>
               </>
             )}
-          </button>
+          </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
-            whileTap={{ scale: 0.98 }}
+            whileTap={{ scale: 0.97 }}
             type="button"
             onClick={handlePrint}
-            className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.35)] ${
+            className={`px-5 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.35)] hover:shadow-[0_0_30px_rgba(6,182,212,0.55)] transition-all duration-200 ${
               isOfficer
                 ? 'btn-cyan-shimmer text-slate-950'
                 : 'bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 text-slate-950'
@@ -253,19 +255,26 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
             </span>
           </motion.button>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.96 }}
             type="button"
             onClick={onResetAll}
-            className="px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            className="px-4 py-2.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow-[0_0_12px_rgba(255,255,255,0.05)] cursor-pointer transition-all duration-200"
           >
             <RotateCcw className="w-4 h-4 text-slate-400" />
             <span>Audit Another Product</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* FORMAL 1-PAGE A4 OFFICIAL DOCUMENT VIEWPORT */}
-      <div className="bg-white border border-slate-300/90 rounded-2xl p-6 sm:p-10 shadow-[0_12px_40px_rgb(0,0,0,0.06)] max-w-4xl mx-auto w-full font-serif text-slate-900 leading-snug relative overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 20, scale: 0.99 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="bg-white border border-slate-300/90 rounded-2xl p-6 sm:p-10 shadow-[0_12px_45px_rgba(0,0,0,0.12)] max-w-4xl mx-auto w-full font-serif text-slate-900 leading-snug relative overflow-hidden"
+      >
         
         {/* FAINT 4% OPACITY OFFICIAL STATUTORY BACKGROUND WATERMARK */}
         <div className="absolute inset-0 pointer-events-none select-none flex items-center justify-center overflow-hidden z-0 opacity-[0.04]">
@@ -581,7 +590,7 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
                   Statutory Show-Cause Notice Under Section 36 & Section 39: 
                 </span>{' '}
                 <span className="text-slate-800">
-                  You are hereby notified that the inspected pre-packaged commodity fails to declare mandatory legal disclosures and/or exhibits price tampering and/or short-weight filling. You are called upon to show cause within 15 calendar days why penal proceedings under Section 36 (penalties up to ₹25,000) and Section 39 (penalties up to ₹10,000 for first offence, and imprisonment up to 1 year for subsequent offences) of the Legal Metrology Act, 2009 should not be initiated against your enterprise.
+                  You are hereby notified that the inspected pre-packaged commodity fails to declare mandatory legal disclosures and/or exhibits price tampering and/or short-weight filling. You are called upon to show cause within 15 calendar days stating grounds and reasons for these breaches. Take notice that if a satisfactory explanation is not submitted within 15 days, the challan will be issued to your company and formal prosecution under the Legal Metrology Act, 2009 shall be initiated.
                 </span>
               </div>
             ) : (
@@ -609,42 +618,42 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
           )}
 
           {/* ========================================================================= */}
-          {/* STATUTORY PENALTY & COMPOUNDING ASSESSMENT TABLE (OFFICER MODE ONLY)     */}
+          {/* STATUTORY DEFECT ENUMERATION & CHALLAN NOTICE (OFFICER MODE ONLY)         */}
           {/* ========================================================================= */}
           {isOfficer && hasCompoundingViolations && (
             <div className="font-sans mb-4 border border-rose-300 print:border-black rounded-lg bg-rose-50/40 print:bg-white p-3.5">
               
-              {/* Header Bar with Total Penalty Demand Badge */}
+              {/* Header Bar with Challan Notice Badge */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 pb-2 border-b border-rose-200 print:border-black">
                 <div>
                   <div className="text-xs font-black uppercase tracking-wider text-rose-950 print:text-black flex items-center gap-1.5">
                     <Scale className="w-4 h-4 text-rose-700 print:text-black shrink-0" />
-                    <span>STATUTORY COMPOUNDING FINE ASSESSMENT</span>
+                    <span>STATUTORY DEFECT ENUMERATION & LEGAL NOTICE</span>
                   </div>
                   <div className="text-[10px] text-slate-600 print:text-black mt-0.5">
-                    Assessed under Section 36(1), Section 36(2), Section 39 & Section 48 of Legal Metrology Act, 2009
+                    Notified under Section 36(1), Section 36(2) & Section 39 of Legal Metrology Act, 2009
                   </div>
                 </div>
 
-                {/* Highlighted TOTAL PENALTY DEMAND badge */}
-                <div className="bg-rose-950 print:bg-white text-white print:text-black px-3.5 py-1.5 rounded-lg shadow-sm border border-rose-900 print:border-2 print:border-black flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-rose-200 print:text-black">
-                    TOTAL STATUTORY DEMAND:
+                {/* Highlighted Notice of Challan badge */}
+                <div className="bg-rose-900 print:bg-white text-white print:text-black px-3 py-1.5 rounded-lg shadow-sm border border-rose-950 print:border-2 print:border-black flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-rose-100 print:text-black">
+                    STATUS:
                   </span>
-                  <span className="text-sm font-black font-mono tracking-tight text-white print:text-black">
-                    ₹{totalCompoundingDemand.toLocaleString('en-IN')}
+                  <span className="text-xs font-black font-mono tracking-tight text-white print:text-black">
+                    THE CHALLAN WILL BE ISSUED TO YOUR COMPANY
                   </span>
                 </div>
               </div>
 
-              {/* Assessment Itemized Table */}
+              {/* Assessment Itemized Table without money/pricing */}
               <table className="w-full text-xs border-collapse border border-slate-300 print:border-black mb-2.5">
                 <thead>
                   <tr className="bg-slate-100 print:bg-slate-200 text-slate-800 print:text-black font-bold border-b border-slate-300 print:border-black text-[11px]">
                     <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-left w-7">#</th>
-                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-left">Violation Type</th>
-                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-center w-36">Legal Section</th>
-                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right w-44">Assessed Compounding Amount (₹)</th>
+                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-left">Violation Type & Detail</th>
+                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-center w-40">Legal Section</th>
+                    <th className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right w-52">Notice Enforcement Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 print:divide-black">
@@ -660,31 +669,22 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
                       <td className="border border-slate-300 print:border-black px-2.5 py-1.5 text-center font-mono font-bold text-slate-700 print:text-black">
                         {item.legalSection}
                       </td>
-                      <td className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right font-mono font-bold text-rose-700 print:text-black">
-                        ₹{item.amount.toLocaleString('en-IN')}
+                      <td className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right font-mono font-bold text-rose-800 print:text-black text-[10px]">
+                        Subject to Challan Issuance
                       </td>
                     </tr>
                   ))}
-                  {/* Summary Total Row */}
-                  <tr className="bg-slate-50 print:bg-slate-100 font-bold border-t-2 border-slate-400 print:border-black text-[11px]">
-                    <td colSpan={3} className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right uppercase tracking-wider text-slate-800 print:text-black">
-                      Total Compounding Sum Payable:
-                    </td>
-                    <td className="border border-slate-300 print:border-black px-2.5 py-1.5 text-right font-mono text-sm font-black text-rose-800 print:text-black">
-                      ₹{totalCompoundingDemand.toLocaleString('en-IN')}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
 
-              {/* Legal Statutory Warning under Section 48 (15-day compounding window) */}
+              {/* Legal Statutory Directive that challan will be issued */}
               <div className="bg-amber-50/90 print:bg-white border border-amber-300 print:border-black p-2.5 rounded text-[10.5px] text-slate-800 print:text-black leading-relaxed flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-700 print:text-black shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-amber-900 print:text-black uppercase">
-                    Statutory Notice under Section 48 (Compounding of Offences):
+                    Statutory Notice & Challan Warning:
                   </span>{' '}
-                  Pursuant to Section 48 of the Legal Metrology Act, 2009, offences punishable under Section 36 and Section 39 may be compounded by the authorised compounding officer before or after the institution of prosecution. The offender is hereby granted a statutory compounding window of <strong>fifteen (15) calendar days</strong> from the date of service of this notice to voluntarily compound the recorded infractions by depositing the assessed sum of <strong>₹{totalCompoundingDemand.toLocaleString('en-IN')}</strong> into the designated Government treasury head. Failure to compound within the stipulated 15 days shall result in initiation of formal criminal prosecution before the Court of Judicial Magistrate First Class under Section 36 / Section 39 without further notice.
+                  Pursuant to the Legal Metrology Act, 2009 and the Packaged Commodities Rules, 2011, your enterprise is hereby granted a statutory explanation window of <strong>fifteen (15) calendar days</strong> from the date of service of this notice. Take notice that if a satisfactory written explanation is not submitted within the stipulated 15 days, <strong>the challan will be issued to your company</strong> and formal criminal prosecution before the Court of Judicial Magistrate First Class shall be initiated without further notice.
                 </div>
               </div>
 
@@ -779,7 +779,7 @@ ${totalCompoundingDemand > 0 ? `*Assessed Compounding Demand:* ₹${totalCompoun
 
         </div>
 
-      </div>
+      </motion.div>
 
     </motion.div>
   );

@@ -22,7 +22,7 @@ export default function NoticeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 no-print">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 no-print">
       <div className="bg-white border border-slate-200 rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Topbar */}
@@ -253,7 +253,7 @@ export function InspectionDocument({
           <div className="bg-rose-50 border border-rose-300 p-2.5 rounded mb-3 font-sans">
             <span className="font-bold text-rose-800 uppercase">Statutory Notice Under Section 36: </span>
             <span className="text-slate-800">
-              Notice is hereby given that the pre-packaged commodity fails to declare mandatory legal disclosures prescribed under Rule 6 and Rule 12. You are directed to show cause within 15 calendar days why penal proceedings under Section 36 of the Legal Metrology Act, 2009 (penalty up to ₹25,000 for first violation) should not be initiated against the manufacturer and principal dealers.
+              Notice is hereby given that the pre-packaged commodity fails to declare mandatory legal disclosures prescribed under Rule 6 and Rule 12. You are directed to show cause within 15 calendar days stating grounds and reasons for these violations. Take notice that if a satisfactory explanation is not submitted within 15 days, the challan will be issued to your company and prosecution under Section 36 of the Legal Metrology Act, 2009 will be initiated.
             </span>
           </div>
         ) : (

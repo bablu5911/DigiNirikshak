@@ -171,17 +171,37 @@ export default function Step2Inspect({
     setEditingRuleId(null);
   };
 
+  // Staggered entrance animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 14 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] } }
+  };
+
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -15 }}
-      transition={{ duration: 0.3 }}
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      exit={{ opacity: 0, y: -12, transition: { duration: 0.25 } }}
       className="flex flex-col gap-5"
     >
       
       {/* Sleek Minimalist Top Workstation Header */}
-      <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800/90 rounded-2xl p-4 shadow-[0_0_25px_rgba(6,182,212,0.05)] flex flex-wrap items-center justify-between gap-4">
+      <motion.div 
+        variants={itemVariants}
+        className="bg-slate-900/80 backdrop-blur-md border border-slate-800/90 hover:border-slate-700/80 rounded-2xl p-4 shadow-[0_0_25px_rgba(6,182,212,0.05)] transition-all duration-300 flex flex-wrap items-center justify-between gap-4"
+      >
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -189,8 +209,8 @@ export default function Step2Inspect({
             </span>
             <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
               isOfficer 
-                ? 'text-emerald-300 bg-emerald-950/80 border-emerald-500/40' 
-                : 'text-cyan-300 bg-cyan-950/80 border-cyan-500/40'
+                ? 'text-emerald-300 bg-emerald-950/80 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.2)]' 
+                : 'text-cyan-300 bg-cyan-950/80 border-cyan-500/40 shadow-[0_0_8px_rgba(6,182,212,0.2)]'
             }`}>
               #{sampleMeta.batchNo || 'PKG-2026-01'}
             </span>
@@ -205,11 +225,11 @@ export default function Step2Inspect({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2.5 py-1 rounded-lg border border-cyan-500/30">
+          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2.5 py-1 rounded-lg border border-cyan-500/30 shadow-[0_0_8px_rgba(6,182,212,0.15)]">
             PCR 2011 Enforcement Workspace
           </span>
         </div>
-      </div>
+      </motion.div>
 
       {/* ======================================================= */}
       {/* BALANCED 50/50 2-COLUMN WORKSTATION                     */}
@@ -219,7 +239,10 @@ export default function Step2Inspect({
         {/* ===================================================== */}
         {/* LEFT COLUMN (50%): PACKAGING VIEWPORT & CROP CANVAS   */}
         {/* ===================================================== */}
-        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800/90 rounded-2xl p-4 shadow-[0_0_25px_rgba(6,182,212,0.05)] flex flex-col gap-3">
+        <motion.div 
+          variants={itemVariants}
+          className="bg-slate-900/80 backdrop-blur-md border border-slate-800/90 hover:border-slate-700/80 rounded-2xl p-4 shadow-[0_0_25px_rgba(6,182,212,0.05)] transition-all duration-300 flex flex-col gap-3"
+        >
           <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
             <div>
               <h3 className="text-xs font-bold text-slate-100 flex items-center gap-2">
@@ -258,12 +281,12 @@ export default function Step2Inspect({
             </span>
             <span className="text-[10px] font-mono text-slate-500">PCR 2011 Engine</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* ===================================================== */}
         {/* RIGHT COLUMN (50%): UNIFIED INSPECTION CONSOLE       */}
         {/* ===================================================== */}
-        <div className="flex flex-col gap-4">
+        <motion.div variants={itemVariants} className="flex flex-col gap-4">
           
           {/* 1. TOP VERDICT STRIP */}
           <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800/90 rounded-2xl p-3.5 shadow-[0_0_25px_rgba(6,182,212,0.05)] flex items-center justify-between gap-3">
@@ -719,18 +742,20 @@ export default function Step2Inspect({
 
           {/* 5. WORKSTATION ACTION BUTTONS */}
           <div className="flex items-center gap-3 pt-1">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.03, y: -1 }}
+              whileTap={{ scale: 0.96 }}
               type="button"
               onClick={onPrevStep}
-              className="px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-850 text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+              className="px-4 py-3 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(255,255,255,0.05)] transition-all shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back</span>
-            </button>
+            </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.01, y: -1 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
               type="button"
               onClick={onNextStep}
               className={`flex-1 py-3.5 px-6 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
@@ -749,7 +774,7 @@ export default function Step2Inspect({
             </motion.button>
           </div>
 
-        </div>
+        </motion.div>
 
       </div>
 

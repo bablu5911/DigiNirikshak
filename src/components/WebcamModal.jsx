@@ -78,37 +78,37 @@ export default function WebcamModal({ isOpen, onClose, onCapture }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-[0_0_35px_rgba(6,182,212,0.15)] max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="bg-slate-950 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
+        <div className="bg-slate-50 text-slate-900 px-5 py-3.5 flex items-center justify-between border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-cyan-400" />
-            <span className="font-bold text-sm text-slate-100">Live Packaging Optical Capture</span>
+            <Camera className="w-5 h-5 text-blue-600" />
+            <span className="font-bold text-sm text-slate-900">Live Packaging Optical Capture</span>
           </div>
           <button 
             type="button" 
             onClick={onClose}
-            className="text-slate-400 hover:text-white text-lg font-bold px-2 py-0.5 rounded cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 text-lg font-bold px-2 py-0.5 rounded cursor-pointer transition-colors"
           >
             ✕
           </button>
         </div>
 
         {/* Viewfinder Body */}
-        <div className="p-5 flex flex-col items-center bg-slate-900 text-slate-100">
-          <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-slate-800 shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]">
+        <div className="p-5 flex flex-col items-center bg-white text-slate-900">
+          <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 shadow-inner">
             
             {cameraError ? (
-              <div className="p-6 text-center text-rose-300 max-w-sm flex flex-col items-center gap-2">
+              <div className="p-6 text-center text-rose-600 max-w-sm flex flex-col items-center gap-2">
                 <AlertCircle className="w-8 h-8 text-rose-500" />
-                <span className="font-bold text-sm">Camera Access Unavailable</span>
-                <span className="text-xs text-slate-400">{cameraError}</span>
+                <span className="font-bold text-sm text-rose-700">Camera Access Unavailable</span>
+                <span className="text-xs text-slate-500">{cameraError}</span>
                 <button
                   type="button"
                   onClick={startCamera}
-                  className="mt-3 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white cursor-pointer"
+                  className="mt-3 px-3 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 border border-slate-300 cursor-pointer shadow-xs"
                 >
                   Retry Camera Stream
                 </button>
@@ -124,18 +124,18 @@ export default function WebcamModal({ isOpen, onClose, onCapture }) {
                 />
 
                 {isInitializing && (
-                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center text-xs text-cyan-400 font-medium gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center text-xs text-white font-medium gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
                     <span>Initializing camera stream...</span>
                   </div>
                 )}
 
                 {/* Framing Overlay Guide */}
-                <div className="absolute inset-6 border-2 border-dashed border-cyan-400/70 rounded-lg pointer-events-none flex flex-col justify-between p-3">
-                  <span className="text-[10px] uppercase font-extrabold text-cyan-300 bg-slate-950/80 px-2 py-0.5 rounded self-start border border-cyan-500/40">
+                <div className="absolute inset-6 border-2 border-dashed border-blue-400/80 rounded-lg pointer-events-none flex flex-col justify-between p-3">
+                  <span className="text-[10px] uppercase font-extrabold text-white bg-blue-600/90 px-2 py-0.5 rounded self-start shadow-xs">
                     Align Packaging Inside Target Frame
                   </span>
-                  <span className="text-[10px] text-slate-300 bg-slate-950/80 px-2 py-0.5 rounded self-end">
+                  <span className="text-[10px] text-white bg-slate-900/80 px-2 py-0.5 rounded self-end shadow-xs">
                     Keep surface flat & well lit
                   </span>
                 </div>
@@ -144,17 +144,17 @@ export default function WebcamModal({ isOpen, onClose, onCapture }) {
 
           </div>
 
-          <p className="text-xs text-slate-400 mt-3 text-center">
+          <p className="text-xs text-slate-500 mt-3 text-center">
             Point your camera at the principal display panel with Net Qty, MRP, and statutory manufacturer details.
           </p>
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-slate-950 border-t border-slate-800 px-5 py-3.5 flex items-center justify-between">
+        <div className="bg-slate-50 border-t border-slate-200 px-5 py-3.5 flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900 text-xs font-semibold cursor-pointer"
+            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold cursor-pointer transition-colors shadow-xs"
           >
             Cancel
           </button>
@@ -163,9 +163,9 @@ export default function WebcamModal({ isOpen, onClose, onCapture }) {
             type="button"
             disabled={isInitializing || !!cameraError}
             onClick={handleSnap}
-            className="px-5 py-2.5 rounded-xl btn-cyan-shimmer disabled:opacity-40 text-slate-950 text-xs font-black flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.3)] cursor-pointer"
+            className="px-5 py-2.5 rounded-xl btn-cyan-shimmer disabled:opacity-40 text-white text-xs font-black flex items-center gap-2 shadow-sm cursor-pointer"
           >
-            <Camera className="w-4 h-4 text-slate-950" />
+            <Camera className="w-4 h-4 text-white" />
             <span>Capture & Run Forensic Audit</span>
           </button>
         </div>

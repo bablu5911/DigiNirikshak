@@ -1,44 +1,113 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Scale, Sparkles, Terminal } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { 
+  ShieldCheck, 
+  Scale, 
+  Sparkles, 
+  Terminal, 
+  LayoutGrid, 
+  FileText, 
+  Search,
+  Zap,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  History,
+  LogOut
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-import StepIndicator from './components/StepIndicator';
-import Step1Upload from './components/Step1Upload';
-import Step2Inspect from './components/Step2Inspect';
-import Step3Notice from './components/Step3Notice';
-import RawTextDrawer from './components/RawTextDrawer';
 import HeaderProfile from './components/HeaderProfile';
+import EvidenceDeck from './components/EvidenceDeck';
+import ForensicMatrixDeck from './components/ForensicMatrixDeck';
+import EnforcementDossierDeck from './components/EnforcementDossierDeck';
+import HistoryDeck from './components/HistoryDeck';
+import LoginPage from './components/LoginPage';
+import RawTextDrawer from './components/RawTextDrawer';
 
 import { runOcr } from './utils/ocrEngine';
 import { evaluateCompliance } from './utils/rulesEngine';
 import { auditPhysicalScaleWeight } from './utils/mpeCalculator';
 import { generateSamplePack } from './data/sampleImages';
+import { saveAuditRecord } from './utils/historyStorage';
 
 export default function App() {
-  // Current Workflow Step: 1 = Upload, 2 = Inspect, 3 = Notice
-  const [currentStep, setCurrentStep] = useState(1);
-  const [hasScanned, setHasScanned] = useState(false);
-  const [isOcrDrawerOpen, setIsOcrDrawerOpen] = useState(false);
+  // Session Authentication State (Defaults to true if previously logged in)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('diginirikshak_auth') === 'true';
+  });
 
-  // Active User Persona / Role: 'officer' | 'citizen'
+  // Active Terminal View Mode: 'command' | 'inspect' | 'dossier' | 'history'
+  const [viewMode, setViewMode] = useState('command');
+  const [isOcrDrawerOpen, setIsOcrDrawerOpen] = useState(false);
+  const [hoveredRuleId, setHoveredRuleId] = useState(null);
+
+  // Active User Persona: 'officer' | 'citizen'
   const [userRole, setUserRole] = useState('officer');
   const [sellerName, setSellerName] = useState('');
 
   // Pre-Authenticated Officer & Citizen Profiles
-  const officerProfile = {
+  const [officerProfile, setOfficerProfile] = useState({
     name: 'Insp. Rajesh Kumar',
     badge: '#DOCA-8941',
     jurisdiction: 'Regional Directorate (Zone 4)',
     accessLevel: 'Authorized Legal Metrology Officer (PCR 2011)',
     refPrefix: 'INSP/LM/' + new Date().getFullYear() + '/8941'
-  };
+  });
 
-  const citizenProfile = {
+  const [citizenProfile, setCitizenProfile] = useState({
     name: 'Jaya M. (Consumer)',
     badge: 'NCH-CITIZEN-9428',
     jurisdiction: 'Citizen Redressal Portal | NCH Integrated',
     accessLevel: 'Verified Citizen Consumer (NCH 1915)',
     refPrefix: 'NCH/GRV/' + new Date().getFullYear() + '/9428'
+  });
+
+  // Reactive Mouse Movement Parallax
+  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    let animId;
+    const handleMouseMove = (e) => {
+      cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(() => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 2;
+        const y = (e.clientY / window.innerHeight - 0.5) * 2;
+        setMouseOffset({ x, y });
+      });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animId);
+    };
+  }, []);
+
+  // Authentication Handlers
+  const handleLogin = (profile) => {
+    setUserRole(profile.role);
+    if (profile.role === 'officer') {
+      setOfficerProfile(prev => ({
+        ...prev,
+        name: profile.name,
+        badge: profile.badge,
+        jurisdiction: profile.jurisdiction
+      }));
+    } else {
+      setCitizenProfile(prev => ({
+        ...prev,
+        name: profile.name,
+        badge: profile.badge,
+        jurisdiction: profile.jurisdiction
+      }));
+    }
+    setIsAuthenticated(true);
+    localStorage.setItem('diginirikshak_auth', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('diginirikshak_auth');
   };
 
   const activeProfile = userRole === 'officer' ? officerProfile : citizenProfile;
@@ -51,8 +120,8 @@ export default function App() {
 
   // Packaging Metadata
   const [sampleMeta, setSampleMeta] = useState({
-    name: 'Pre-Packaged Retail Commodity',
-    batchNo: 'PKG-' + new Date().getFullYear() + '-01',
+    name: 'NutriGold Whole Grain Biscuits (200g)',
+    batchNo: 'NG-2026-B89',
     timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
   });
 
@@ -70,12 +139,12 @@ export default function App() {
   const [parsedDeclaredUnit, setParsedDeclaredUnit] = useState('g');
 
   // Physical Scale Laboratory Weight (MPE Audit)
-  const [scaleWeight, setScaleWeight] = useState('200');
+  const [scaleWeight, setScaleWeight] = useState('198.5');
   const [mpeAuditResult, setMpeAuditResult] = useState(null);
 
   // Load default Compliant Sample on first mount
   useEffect(() => {
-    handleLoadSample('compliant', false);
+    handleLoadSample('compliant', true);
   }, []);
 
   // Recalculate MPE audit whenever scale weight or declared quantity changes
@@ -89,7 +158,6 @@ export default function App() {
   // 1-Click Demo Sample Loader
   const handleLoadSample = async (type = 'compliant', autoAudit = true) => {
     const label = generateSamplePack(type);
-
     setLabelImage(label);
     setOriginalLabelImage(label);
 
@@ -100,7 +168,7 @@ export default function App() {
         batchNo: 'NG-2026-B89',
         timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
       };
-      setScaleWeight('198.5'); // Within 9g legal MPE tolerance
+      setScaleWeight('198.5');
     } else if (type === 'mislabeled' || type === 'violation') {
       meta = {
         name: 'CrunchMax Potato Chips (75g)',
@@ -114,7 +182,6 @@ export default function App() {
         batchNo: 'RC-2026-TAMPER',
         timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
       };
-      // Base ₹120 covered with ₹150 sticker (+25%), declared 250g, scale 220g (30g short weight exceeds 9g MPE!)
       setScaleWeight('220.0');
     }
 
@@ -122,12 +189,21 @@ export default function App() {
 
     if (autoAudit) {
       await executeOcrAudit(label, meta);
-      setCurrentStep(2);
     }
   };
 
   // Upload Single Statutory Label Handler
   const handleUploadLabel = (dataUrl, filename) => {
+    if (!dataUrl) {
+      setLabelImage(null);
+      setOriginalLabelImage(null);
+      setRules([]);
+      setTamperResult(null);
+      setRawOcrText('');
+      setOcrConfidence(0);
+      return;
+    }
+
     setLabelImage(dataUrl);
     setOriginalLabelImage(dataUrl);
     if (filename) {
@@ -138,21 +214,14 @@ export default function App() {
         timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
       }));
     }
+    executeOcrAudit(dataUrl, sampleMeta);
   };
 
-  // Run Automated Compliance Audit (Step 1 -> Step 2)
-  const handleRunAudit = async () => {
-    if (!labelImage) return;
-
-    await executeOcrAudit(labelImage, sampleMeta);
-    setCurrentStep(2);
-  };
-
-  // Core OCR Execution Pipeline
+  // Core OCR Execution Pipeline & Automated History Recording
   const executeOcrAudit = async (imageSource, meta) => {
     setIsScanning(true);
     setScanProgress(0);
-    setScanStatusText('Preparing high-contrast image & initializing singleton OCR...');
+    setScanStatusText('Preprocessing high-contrast packaging canvas...');
 
     try {
       const { text, confidence } = await runOcr(imageSource, (pct, status) => {
@@ -163,7 +232,6 @@ export default function App() {
       setRawOcrText(text);
       setOcrConfidence(confidence);
 
-      // Evaluate compliance + fraud detection
       const { 
         rules: evaluatedRules, 
         tamperResult: tamperFindings, 
@@ -174,14 +242,37 @@ export default function App() {
       setRules(evaluatedRules);
       setTamperResult(tamperFindings);
 
+      let currentAuditResult = null;
       if (detectedQty) {
         setParsedDeclaredQty(detectedQty);
         setParsedDeclaredUnit(detectedUnit || 'g');
-        const audit = auditPhysicalScaleWeight(detectedQty, detectedUnit || 'g', parseFloat(scaleWeight) || detectedQty);
-        setMpeAuditResult(audit);
+        currentAuditResult = auditPhysicalScaleWeight(detectedQty, detectedUnit || 'g', parseFloat(scaleWeight) || detectedQty);
+        setMpeAuditResult(currentAuditResult);
       }
 
-      setHasScanned(true);
+      // Automatically register/update this inspection in persistent History Ledger
+      const flagged = evaluatedRules.filter(r => r.status === 'VIOLATION' || r.status === 'FAIL');
+      const isTampered = Boolean(tamperFindings?.hasTampering);
+      const isShort = Boolean(currentAuditResult?.isShortWeight);
+      const hasDefects = flagged.length > 0 || isTampered || isShort;
+
+      saveAuditRecord({
+        id: 'HIST-' + (meta.batchNo || 'PKG-2026'),
+        companyName: meta.name ? meta.name.split('(')[0].trim() : 'Packaged Goods Manufacturer',
+        commodity: meta.name,
+        batchNo: meta.batchNo,
+        timestamp: meta.timestamp || new Date().toLocaleDateString('en-IN'),
+        inspectorName: activeProfile.name,
+        verdict: hasDefects ? 'VIOLATION' : 'PASSED',
+        violationsCount: flagged.length + (isTampered ? 1 : 0) + (isShort ? 1 : 0),
+        violationDetails: flagged.map(f => `${f.name}: ${f.evidenceDetail || 'Non-compliant declaration'}`),
+        noticeStatus: hasDefects ? 'PENDING' : 'CLEARED',
+        noticeDispatchedAt: null,
+        dispatchedFromEmail: activeProfile?.email || 'rajesh.kumar@doca.gov.in',
+        dispatchTrackingNo: null,
+        declaredQty: `${detectedQty || 200}${detectedUnit || 'g'}`,
+        measuredWeight: `${scaleWeight || 200}${detectedUnit || 'g'}`
+      });
 
     } catch (err) {
       console.error('Audit execution error:', err);
@@ -191,7 +282,7 @@ export default function App() {
     }
   };
 
-  // Interactive Crop & Rescan Tool in Step 2
+  // Interactive Crop & Rescan Tool
   const handleCropAndRescan = async (croppedDataUrl) => {
     setLabelImage(croppedDataUrl);
     setIsScanning(true);
@@ -264,7 +355,6 @@ export default function App() {
     }));
   };
 
-  // Reset All to Step 1
   const handleResetAll = () => {
     setLabelImage(null);
     setOriginalLabelImage(null);
@@ -272,116 +362,305 @@ export default function App() {
     setTamperResult(null);
     setRawOcrText('');
     setOcrConfidence(0);
-    setHasScanned(false);
     setScaleWeight('200');
     setSellerName('');
     setMpeAuditResult(null);
-    setCurrentStep(1);
   };
 
+  const handleViewNoticeFromHistory = (record) => {
+    setSampleMeta({
+      name: record.commodity,
+      batchNo: record.batchNo,
+      timestamp: record.timestamp
+    });
+    setViewMode('dossier');
+  };
+
+  // If user is not logged in, render the futuristic GovTech LoginPage
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100 flex flex-col antialiased selection:bg-cyan-500/30 selection:text-cyan-300 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col antialiased selection:bg-blue-500/20 selection:text-blue-900 font-sans relative overflow-x-hidden cyber-scanline">
       
-      {/* Decorative Blueprint Dotted Grid Matrix Overlay */}
-      <div className="fixed inset-0 bg-blueprint-dots opacity-50 pointer-events-none z-0"></div>
+      {/* Reactive Parallax Blueprint Overlay (Light) */}
+      <div 
+        className="fixed inset-0 bg-blueprint-dots opacity-60 pointer-events-none z-0 transition-transform duration-700 ease-out will-change-transform"
+        style={{
+          transform: `translate3d(${mouseOffset.x * 14}px, ${mouseOffset.y * 14}px, 0)`
+        }}
+      />
 
-      {/* Decorative Atmospheric Ambient Glow Orbs */}
-      <div className="fixed top-[-10%] left-[-5%] w-[550px] h-[550px] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none z-0"></div>
-      <div className="fixed bottom-[-10%] right-[-5%] w-[650px] h-[650px] bg-blue-600/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+      {/* Atmospheric Ambient Glow Orbs with Floating Parallax (Light) */}
+      <div 
+        className="fixed top-[-15%] left-[-10%] w-[650px] h-[650px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none z-0 animate-float-slow transition-transform duration-1000 ease-out will-change-transform"
+        style={{
+          transform: `translate3d(${mouseOffset.x * 35}px, ${mouseOffset.y * 35}px, 0)`
+        }}
+      />
+      <div 
+        className="fixed bottom-[-15%] right-[-10%] w-[750px] h-[750px] bg-indigo-500/08 rounded-full blur-3xl pointer-events-none z-0 animate-float-reverse transition-transform duration-1000 ease-out will-change-transform"
+        style={{
+          transform: `translate3d(${-mouseOffset.x * 45}px, ${-mouseOffset.y * 45}px, 0)`
+        }}
+      />
 
-      {/* SCREEN APPLICATION (Hidden during print) */}
+      {/* NO-PRINT SCREEN APPLICATION */}
       <div className="no-print flex-1 flex flex-col relative z-10">
         
-        {/* Glassmorphic Institutional Top Bar (Single Sleek Row h-16) */}
-        <header className="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/90 sticky top-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.5)] h-16">
+        {/* Institutional Header (Light Theme) */}
+        <header className="bg-white/90 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-xs h-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
             
-            {/* 1. LEFT: LOGO, TITLE, SUBTITLE & SYSTEM ONLINE INDICATOR */}
+            {/* Logo & National Directorate Title */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black shadow-[0_0_15px_rgba(6,182,212,0.35)] text-lg shrink-0">
+              <motion.div 
+                whileHover={{ scale: 1.08, rotate: 3 }}
+                className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center text-white font-black shadow-[0_4px_15px_rgba(37,99,235,0.3)] text-lg shrink-0 cursor-pointer"
+              >
                 ⚖️
-              </div>
+              </motion.div>
               <div className="flex flex-col">
-                <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight">
-                  DigiNirikshak
-                </h1>
-                <div className="flex items-center gap-2 -mt-0.5">
-                  <span className="text-[11px] font-medium text-slate-400">
-                    Dept. of Consumer Affairs
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
+                    DigiNirikshak
+                  </h1>
+                  <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.2 rounded border border-blue-200 shadow-2xs">
+                    SIH26034
                   </span>
-                  <span className="text-slate-600 text-[10px]">•</span>
-                  <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-400" title="Forensic Enforcement Engine Live">
+                </div>
+                <div className="flex items-center gap-2 -mt-0.5">
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Legal Metrology Command Terminal
+                  </span>
+                  <span className="text-slate-400 text-[10px]">•</span>
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_6px_#10b981]"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_6px_#10b981]"></span>
                     </span>
-                    <span>SYSTEM ONLINE</span>
+                    <span>ONLINE</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 2. CENTER: COMPACT MONOSPACE TELEMETRY CHIP */}
-            <div className="hidden md:flex items-center font-mono text-[11px] text-slate-400 bg-slate-950/80 px-3.5 py-1 rounded-full border border-slate-800 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)] select-none">
-              <span className="text-slate-500 font-bold">[</span>
-              <span className="mx-1.5 text-emerald-400 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>🟢 WASM-OCR v7</span>
-              </span>
-              <span className="text-slate-600 mx-1">|</span>
-              <span className="text-cyan-300 font-semibold mx-1.5">PCR-2011 SCHED-I</span>
-              <span className="text-slate-600 mx-1">|</span>
-              <span className="text-blue-300 font-bold mx-1.5">DOCA-HQ</span>
-              <span className="text-slate-500 font-bold">]</span>
+            {/* View Mode Switcher Pills (Light Theme) */}
+            <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('command')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'command'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+                <span>Command Hub</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('inspect')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'inspect'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5 text-blue-600" />
+                <span>Inspection Deck</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('dossier')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'dossier'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>Show Cause Notice</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewMode('history')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'history'
+                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-3.5 h-3.5 text-blue-600" />
+                <span>Ledger History</span>
+              </button>
             </div>
 
-            {/* 3. RIGHT: 1-CLICK ROLE SWITCHER PROFILE DROPDOWN */}
-            <div className="flex items-center">
+            {/* Right: Persona Switcher, OCR Log & Logout */}
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => setIsOcrDrawerOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-mono font-bold cursor-pointer shadow-xs"
+                title="Open Raw Tesseract OCR Terminal Drawer"
+              >
+                <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                <span>OCR Log</span>
+              </motion.button>
+
               <HeaderProfile
                 userRole={userRole}
                 onRoleChange={setUserRole}
                 officerProfile={officerProfile}
                 citizenProfile={citizenProfile}
               />
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={handleLogout}
+                className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-xs"
+                title="Logout Session"
+              >
+                <LogOut className="w-4 h-4" />
+              </motion.button>
             </div>
 
           </div>
         </header>
 
-        {/* WORKFLOW CONTENT WITH MAXIMIZED SCREEN HEIGHT */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 flex flex-col gap-4 w-full">
-          
-          {/* STEPPER NAVIGATION WIZARD */}
-          <StepIndicator 
-            currentStep={currentStep}
-            onStepClick={(stepId) => setCurrentStep(stepId)}
-            hasScanned={hasScanned}
-          />
+        {/* Dynamic Telemetry Status Ticker (Light Theme) */}
+        <div className="bg-blue-50/80 border-b border-blue-100/90 px-4 py-1.5 text-[11px] font-mono text-slate-600">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto whitespace-nowrap">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5 text-blue-700 font-bold">
+                <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                <span>DOCKET: #{sampleMeta.batchNo}</span>
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-800 font-medium">{sampleMeta.name}</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.2 rounded border border-emerald-200">🟢 WASM-Tesseract 7.0 Ready</span>
+            </div>
 
-          {/* ANIMATED STEP VIEWS */}
-          <AnimatePresence mode="wait">
-            {currentStep === 1 && (
-              <Step1Upload 
-                key="step-1"
+            <div className="flex items-center gap-3">
+              <span className="text-slate-600">
+                Active User: <strong className={userRole === 'officer' ? 'text-emerald-800' : 'text-blue-800'}>
+                  {activeProfile.name} ({activeProfile.badge})
+                </strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN WORKSPACE */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 flex flex-col gap-5 w-full">
+          
+          {/* LAYOUT 1: FULL 3-DECK COMMAND HUB */}
+          {viewMode === 'command' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
+            >
+              {/* DECK 1 (Left 4 cols): Evidence Bay & Packaging Viewport */}
+              <div className="lg:col-span-4 flex flex-col gap-4">
+                <EvidenceDeck
+                  labelImage={labelImage}
+                  onUploadLabel={handleUploadLabel}
+                  onLoadSample={handleLoadSample}
+                  onRunAudit={() => executeOcrAudit(labelImage, sampleMeta)}
+                  isScanning={isScanning}
+                  scanProgress={scanProgress}
+                  scanStatusText={scanStatusText}
+                  rules={rules}
+                  hoveredRuleId={hoveredRuleId}
+                  tamperResult={tamperResult}
+                  onCropAndRescan={handleCropAndRescan}
+                  onResetView={handleResetView}
+                  sampleMeta={sampleMeta}
+                />
+              </div>
+
+              {/* DECK 2 (Center 4 cols): Forensic Compliance Matrix */}
+              <div className="lg:col-span-4 flex flex-col gap-4">
+                <ForensicMatrixDeck
+                  userRole={userRole}
+                  activeProfile={activeProfile}
+                  sellerName={sellerName}
+                  onSellerNameChange={setSellerName}
+                  rules={rules}
+                  tamperResult={tamperResult}
+                  parsedDeclaredQty={parsedDeclaredQty}
+                  parsedDeclaredUnit={parsedDeclaredUnit}
+                  scaleWeight={scaleWeight}
+                  onScaleWeightChange={setScaleWeight}
+                  mpeAuditResult={mpeAuditResult}
+                  hoveredRuleId={hoveredRuleId}
+                  onHoverRule={setHoveredRuleId}
+                  onToggleRuleStatus={handleToggleRuleStatus}
+                  onSaveRuleSnippet={handleSaveRuleSnippet}
+                />
+              </div>
+
+              {/* DECK 3 (Right 4 cols): Real-Time Show Cause Notice Dossier */}
+              <div className="lg:col-span-4 flex flex-col gap-4">
+                <EnforcementDossierDeck
+                  userRole={userRole}
+                  activeProfile={activeProfile}
+                  sellerName={sellerName}
+                  sampleMeta={sampleMeta}
+                  rules={rules}
+                  tamperResult={tamperResult}
+                  mpeAuditResult={mpeAuditResult}
+                  inspectorName={inspectorName}
+                  inspectionRef={inspectionRef}
+                  onResetAll={handleResetAll}
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {/* LAYOUT 2: INSPECTION FOCUS (2-Column Expanded) */}
+          {viewMode === 'inspect' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start"
+            >
+              <EvidenceDeck
                 labelImage={labelImage}
                 onUploadLabel={handleUploadLabel}
                 onLoadSample={handleLoadSample}
-                onRunAudit={handleRunAudit}
+                onRunAudit={() => executeOcrAudit(labelImage, sampleMeta)}
                 isScanning={isScanning}
                 scanProgress={scanProgress}
                 scanStatusText={scanStatusText}
+                rules={rules}
+                hoveredRuleId={hoveredRuleId}
+                tamperResult={tamperResult}
+                onCropAndRescan={handleCropAndRescan}
+                onResetView={handleResetView}
+                sampleMeta={sampleMeta}
               />
-            )}
 
-            {currentStep === 2 && (
-              <Step2Inspect 
-                key="step-2"
+              <ForensicMatrixDeck
                 userRole={userRole}
                 activeProfile={activeProfile}
                 sellerName={sellerName}
                 onSellerNameChange={setSellerName}
-                labelImage={labelImage}
-                sampleMeta={sampleMeta}
                 rules={rules}
                 tamperResult={tamperResult}
                 parsedDeclaredQty={parsedDeclaredQty}
@@ -389,52 +668,68 @@ export default function App() {
                 scaleWeight={scaleWeight}
                 onScaleWeightChange={setScaleWeight}
                 mpeAuditResult={mpeAuditResult}
-                rawOcrText={rawOcrText}
-                ocrConfidence={ocrConfidence}
-                isScanning={isScanning}
-                scanProgress={scanProgress}
-                scanStatusText={scanStatusText}
-                onCropAndRescan={handleCropAndRescan}
-                onResetView={handleResetView}
+                hoveredRuleId={hoveredRuleId}
+                onHoverRule={setHoveredRuleId}
                 onToggleRuleStatus={handleToggleRuleStatus}
                 onSaveRuleSnippet={handleSaveRuleSnippet}
-                onPrevStep={() => setCurrentStep(1)}
-                onNextStep={() => setCurrentStep(3)}
               />
-            )}
+            </motion.div>
+          )}
 
-            {currentStep === 3 && (
-              <Step3Notice 
-                key="step-3"
+          {/* LAYOUT 3: LEGAL NOTICE FOCUS */}
+          {viewMode === 'dossier' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3 }}
+              className="max-w-4xl mx-auto w-full"
+            >
+              <EnforcementDossierDeck
                 userRole={userRole}
                 activeProfile={activeProfile}
                 sellerName={sellerName}
                 sampleMeta={sampleMeta}
-                labelImage={labelImage}
-                activeImageSrc={labelImage}
                 rules={rules}
                 tamperResult={tamperResult}
                 mpeAuditResult={mpeAuditResult}
-                scaleResult={mpeAuditResult}
                 inspectorName={inspectorName}
                 inspectionRef={inspectionRef}
-                onPrevStep={() => setCurrentStep(2)}
                 onResetAll={handleResetAll}
               />
-            )}
-          </AnimatePresence>
+            </motion.div>
+          )}
+
+          {/* LAYOUT 4: AUDIT HISTORY LEDGER & NOTICE DISPATCH TRACKER */}
+          {viewMode === 'history' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <HistoryDeck 
+                onViewNotice={handleViewNoticeFromHistory}
+                activeProfile={activeProfile}
+              />
+            </motion.div>
+          )}
 
         </main>
 
-        {/* FOOTER */}
-        <footer className="mt-auto border-t border-slate-800/90 bg-slate-950/80 backdrop-blur-md py-4 text-center text-xs text-slate-400">
+        {/* Global Terminal Footer (Light Theme) */}
+        <footer className="mt-auto border-t border-slate-200 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-500">
           <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px]">
-            <span>DigiNirikshak • SIH Problem Statement SIH26034 (DoCA)</span>
-            <span>Enacted under Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011</span>
+            <span className="flex items-center gap-1.5 text-slate-700">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>DigiNirikshak • SIH Problem Statement SIH26034 (DoCA)</span>
+            </span>
+            <span className="text-slate-500">Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011 • Rule 32 SCN</span>
           </div>
         </footer>
 
-        {/* RAW OCR TERMINAL DRAWER / MODAL */}
+        {/* Raw OCR Modal Drawer */}
         <RawTextDrawer
           isOpen={isOcrDrawerOpen}
           onClose={() => setIsOcrDrawerOpen(false)}
@@ -445,22 +740,18 @@ export default function App() {
 
       </div>
 
-      {/* PRINT-ONLY ROOT (Strict A4 Layout when window.print() is executed) */}
+      {/* PRINT-ONLY ROOT (Authentic A4 Paper Print) */}
       <div className="print-only p-4">
-        <Step3Notice 
+        <EnforcementDossierDeck
           userRole={userRole}
           activeProfile={activeProfile}
           sellerName={sellerName}
           sampleMeta={sampleMeta}
-          labelImage={labelImage}
-          activeImageSrc={labelImage}
           rules={rules}
           tamperResult={tamperResult}
           mpeAuditResult={mpeAuditResult}
-          scaleResult={mpeAuditResult}
           inspectorName={inspectorName}
           inspectionRef={inspectionRef}
-          onPrevStep={() => {}}
           onResetAll={() => {}}
         />
       </div>
