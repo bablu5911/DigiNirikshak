@@ -1,11 +1,11 @@
 /**
- * Inspection History Ledger Storage
- * Persists audit trail, batch records, violation findings, and Show Cause Legal Notice dispatch statuses in localStorage.
+ * Factory Raid Inspection History Storage
+ * Persists mobile field inspection records, batch audits, and statutory compliance verdicts in localStorage.
  */
 
-const STORAGE_KEY = 'diginirikshak_audit_history_v1';
+const STORAGE_KEY = 'diginirikshak_raid_history_v2';
 
-// Pre-seeded realistic statutory audit records
+// Pre-seeded realistic factory raid sample inspection records
 const DEFAULT_RECORDS = [
   {
     id: 'HIST-2026-001',
@@ -17,9 +17,14 @@ const DEFAULT_RECORDS = [
     verdict: 'PASSED',
     violationsCount: 0,
     violationDetails: [],
-    noticeStatus: 'CLEARED', // 'CLEARED' | 'PENDING' | 'DISPATCHED'
-    noticeDispatchedAt: null,
-    dispatchTrackingNo: null,
+    compliantDetails: [
+      'Rule 6(1)(e): MRP ₹45.00 declared with "inclusive of all taxes"',
+      'Rule 6(1)(b): Standard Net Quantity 200g in metric units',
+      'Rule 6(1)(d): Month & Year of packing verified (08/2026)',
+      'Rule 6(1)(a): Complete manufacturer factory address identified',
+      'Rule 6(1)(f): Consumer care helpline and support email present',
+      'Section 39: Weight 198.5g is within legal Maximum Permissible Error (MPE)'
+    ],
     declaredQty: '200g',
     measuredWeight: '198.5g'
   },
@@ -33,13 +38,14 @@ const DEFAULT_RECORDS = [
     verdict: 'VIOLATION',
     violationsCount: 2,
     violationDetails: [
-      'Rule 6(1)(e): Absence of "Inclusive of all taxes" declaration',
-      'Rule 6(1)(b): Non-standard net quantity representation (75 gm vs standard g)'
+      'Rule 6(1)(e): Absence of mandatory "Inclusive of all taxes" declaration',
+      'Rule 6(1)(b): Non-standard net quantity unit representation (75 gm instead of standard g)'
     ],
-    noticeStatus: 'DISPATCHED',
-    noticeDispatchedAt: '15 Sep 2026, 03:10 PM',
-    dispatchedFromEmail: 'rajesh.kumar@doca.gov.in',
-    dispatchTrackingNo: 'DOCA/SPD/2026/8941-X41',
+    compliantDetails: [
+      'Rule 6(1)(d): Month & Year of packing verified',
+      'Rule 6(1)(a): Complete manufacturer factory address present',
+      'Rule 6(1)(f): Consumer care contact details verified'
+    ],
     declaredQty: '75g',
     measuredWeight: '75.0g'
   },
@@ -53,13 +59,14 @@ const DEFAULT_RECORDS = [
     verdict: 'VIOLATION',
     violationsCount: 2,
     violationDetails: [
-      'Rule 18(2): Unauthorized retail price alteration / over-stickering of declared MRP',
-      'Section 39: Short-quantity packaging deficit of 30g (exceeds legal 9g MPE)'
+      'Rule 18(2): Unauthorized retail price alteration / over-stickering of factory MRP (₹280 sticker over ₹250)',
+      'Section 39: Short-quantity packaging deficit of 30g (Measured 220g vs Declared 250g, exceeds legal 9g MPE)'
     ],
-    noticeStatus: 'PENDING',
-    noticeDispatchedAt: null,
-    dispatchedFromEmail: null,
-    dispatchTrackingNo: null,
+    compliantDetails: [
+      'Rule 6(1)(d): Month & Year of packing verified',
+      'Rule 6(1)(a): Manufacturer name and address present',
+      'Rule 6(1)(f): Consumer care helpline verified'
+    ],
     declaredQty: '250g',
     measuredWeight: '220.0g'
   },
@@ -73,10 +80,13 @@ const DEFAULT_RECORDS = [
     verdict: 'PASSED',
     violationsCount: 0,
     violationDetails: [],
-    noticeStatus: 'CLEARED',
-    noticeDispatchedAt: null,
-    dispatchedFromEmail: null,
-    dispatchTrackingNo: null,
+    compliantDetails: [
+      'Rule 6(1)(e): MRP declared with "incl. of all taxes"',
+      'Rule 6(1)(b): Standard Net Volume 1000ml in metric units',
+      'Rule 6(1)(d): Batch & packing date valid',
+      'Rule 6(1)(a): Bottling plant address verified',
+      'Rule 6(1)(f): Consumer support toll-free number active'
+    ],
     declaredQty: '1000ml',
     measuredWeight: '1000ml'
   },
@@ -92,10 +102,12 @@ const DEFAULT_RECORDS = [
     violationDetails: [
       'Rule 6(1)(f): Absence of consumer care telephone helpline and grievance email'
     ],
-    noticeStatus: 'DISPATCHED',
-    noticeDispatchedAt: '12 Sep 2026, 05:00 PM',
-    dispatchedFromEmail: 'rajesh.kumar@doca.gov.in',
-    dispatchTrackingNo: 'DOCA/SPD/2026/8941-G12',
+    compliantDetails: [
+      'Rule 6(1)(e): MRP inclusive of taxes verified',
+      'Rule 6(1)(b): Net Volume declared in standard ml',
+      'Rule 6(1)(d): Packing date verified',
+      'Rule 6(1)(a): Dairy plant address present'
+    ],
     declaredQty: '500ml',
     measuredWeight: '500ml'
   }
@@ -118,7 +130,6 @@ export function getAuditHistory() {
 export function saveAuditRecord(record) {
   try {
     const current = getAuditHistory();
-    // Check if record for batch already exists, if so update it
     const existingIndex = current.findIndex(r => r.batchNo === record.batchNo);
     let updated;
     if (existingIndex >= 0) {
@@ -131,34 +142,6 @@ export function saveAuditRecord(record) {
     return updated;
   } catch (e) {
     console.error('Error saving audit record:', e);
-    return getAuditHistory();
-  }
-}
-
-export function markNoticeDispatched(recordId, trackingNo = null, senderEmail = null) {
-  try {
-    const current = getAuditHistory();
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const tracking = trackingNo || `DOCA/SPD/${now.getFullYear()}/${Math.floor(10000 + Math.random() * 90000)}`;
-
-    const updated = current.map(r => {
-      if (r.id === recordId || r.batchNo === recordId) {
-        return {
-          ...r,
-          noticeStatus: 'DISPATCHED',
-          noticeDispatchedAt: dateStr,
-          dispatchedFromEmail: senderEmail || r.dispatchedFromEmail || 'rajesh.kumar@doca.gov.in',
-          dispatchTrackingNo: tracking
-        };
-      }
-      return r;
-    });
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    return updated;
-  } catch (e) {
-    console.error('Error marking notice as dispatched:', e);
     return getAuditHistory();
   }
 }

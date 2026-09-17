@@ -5,21 +5,23 @@ import {
   Sparkles, 
   Terminal, 
   LayoutGrid, 
-  FileText, 
   Search,
-  Zap,
   Activity,
-  CheckCircle2,
-  AlertTriangle,
-  History,
-  LogOut
+  CheckCircle2, 
+  AlertTriangle, 
+  History, 
+  LogOut,
+  Camera,
+  ClipboardCheck,
+  RotateCcw,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import HeaderProfile from './components/HeaderProfile';
 import EvidenceDeck from './components/EvidenceDeck';
 import ForensicMatrixDeck from './components/ForensicMatrixDeck';
-import EnforcementDossierDeck from './components/EnforcementDossierDeck';
 import HistoryDeck from './components/HistoryDeck';
 import LoginPage from './components/LoginPage';
 import RawTextDrawer from './components/RawTextDrawer';
@@ -36,8 +38,8 @@ export default function App() {
     return localStorage.getItem('diginirikshak_auth') === 'true';
   });
 
-  // Active Terminal View Mode: 'command' | 'inspect' | 'dossier' | 'history'
-  const [viewMode, setViewMode] = useState('command');
+  // Active View Mode: 'hub' (split) | 'scan' | 'audit' | 'history'
+  const [viewMode, setViewMode] = useState('hub');
   const [isOcrDrawerOpen, setIsOcrDrawerOpen] = useState(false);
   const [hoveredRuleId, setHoveredRuleId] = useState(null);
 
@@ -111,8 +113,6 @@ export default function App() {
   };
 
   const activeProfile = userRole === 'officer' ? officerProfile : citizenProfile;
-  const inspectorName = activeProfile.name;
-  const inspectionRef = activeProfile.refPrefix;
 
   // Single Statutory Label Image
   const [labelImage, setLabelImage] = useState(null);
@@ -206,15 +206,13 @@ export default function App() {
 
     setLabelImage(dataUrl);
     setOriginalLabelImage(dataUrl);
-    if (filename) {
-      setSampleMeta(prev => ({
-        ...prev,
-        name: filename.replace(/\.[^/.]+$/, "") || prev.name,
-        batchNo: 'SCAN-' + Math.floor(1000 + Math.random() * 9000),
-        timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-      }));
-    }
-    executeOcrAudit(dataUrl, sampleMeta);
+    const newMeta = {
+      name: filename ? filename.replace(/\.[^/.]+$/, "") : sampleMeta.name,
+      batchNo: 'RAID-' + Math.floor(1000 + Math.random() * 9000),
+      timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    };
+    setSampleMeta(newMeta);
+    executeOcrAudit(dataUrl, newMeta);
   };
 
   // Core OCR Execution Pipeline & Automated History Recording
@@ -250,8 +248,9 @@ export default function App() {
         setMpeAuditResult(currentAuditResult);
       }
 
-      // Automatically register/update this inspection in persistent History Ledger
+      // Automatically register this inspection in persistent Raid Ledger
       const flagged = evaluatedRules.filter(r => r.status === 'VIOLATION' || r.status === 'FAIL');
+      const compliant = evaluatedRules.filter(r => r.status === 'PASS');
       const isTampered = Boolean(tamperFindings?.hasTampering);
       const isShort = Boolean(currentAuditResult?.isShortWeight);
       const hasDefects = flagged.length > 0 || isTampered || isShort;
@@ -265,11 +264,12 @@ export default function App() {
         inspectorName: activeProfile.name,
         verdict: hasDefects ? 'VIOLATION' : 'PASSED',
         violationsCount: flagged.length + (isTampered ? 1 : 0) + (isShort ? 1 : 0),
-        violationDetails: flagged.map(f => `${f.name}: ${f.evidenceDetail || 'Non-compliant declaration'}`),
-        noticeStatus: hasDefects ? 'PENDING' : 'CLEARED',
-        noticeDispatchedAt: null,
-        dispatchedFromEmail: activeProfile?.email || 'rajesh.kumar@doca.gov.in',
-        dispatchTrackingNo: null,
+        violationDetails: [
+          ...(isTampered ? ['Rule 18(2): Unauthorized price alteration / over-stickering'] : []),
+          ...(isShort ? [`Section 39: Physical weight deficit beyond legal MPE`] : []),
+          ...flagged.map(f => `${f.name}: ${f.defectExplanation || f.description || 'Statutory declaration missing'}`)
+        ],
+        compliantDetails: compliant.map(c => `${c.name}: Verified compliant`),
         declaredQty: `${detectedQty || 200}${detectedUnit || 'g'}`,
         measuredWeight: `${scaleWeight || 200}${detectedUnit || 'g'}`
       });
@@ -335,7 +335,7 @@ export default function App() {
         return {
           ...r,
           status: nextStatus,
-          evidenceDetail: `Manually marked as ${nextStatus} by inspecting officer.`
+          defectExplanation: nextStatus === 'VIOLATION' ? 'Manually flagged as non-compliant by officer.' : null
         };
       }
       return r;
@@ -347,15 +347,15 @@ export default function App() {
       if (r.id === ruleId) {
         return {
           ...r,
-          extractedText: newSnippet,
-          evidenceDetail: 'Manually verified snippet transcribed by inspecting officer.'
+          extractedText: newSnippet
         };
       }
       return r;
     }));
   };
 
-  const handleResetAll = () => {
+  // Rapid "Scan Next Packet" / Reset Workflow
+  const handleScanNextPacket = () => {
     setLabelImage(null);
     setOriginalLabelImage(null);
     setRules([]);
@@ -365,281 +365,207 @@ export default function App() {
     setScaleWeight('200');
     setSellerName('');
     setMpeAuditResult(null);
-  };
-
-  const handleViewNoticeFromHistory = (record) => {
     setSampleMeta({
-      name: record.commodity,
-      batchNo: record.batchNo,
-      timestamp: record.timestamp
+      name: 'New Inspection Packet',
+      batchNo: 'RAID-' + Math.floor(1000 + Math.random() * 9000),
+      timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     });
-    setViewMode('dossier');
+    // On mobile, switch directly to scan deck
+    setViewMode('scan');
   };
 
-  // If user is not logged in, render the futuristic GovTech LoginPage
+  // Summary counts
+  const notCorrectRules = rules.filter(r => r.status !== 'PASS');
+  const isScaleViolated = Boolean(mpeAuditResult?.isShortWeight || mpeAuditResult?.isViolated);
+  const isTampered = Boolean(tamperResult?.hasTampering);
+  const totalDefects = notCorrectRules.length + (isTampered ? 1 : 0) + (isScaleViolated ? 1 : 0);
+  const isAuditComplete = rules.length > 0;
+
+  // If user is not logged in, render the GovTech LoginPage
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col antialiased selection:bg-blue-500/20 selection:text-blue-900 font-sans relative overflow-x-hidden cyber-scanline">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col antialiased font-sans relative overflow-x-hidden pb-16 md:pb-0">
       
-      {/* Reactive Parallax Blueprint Overlay (Light) */}
+      {/* Light Blueprint Grid Background Overlay */}
       <div 
-        className="fixed inset-0 bg-blueprint-dots opacity-60 pointer-events-none z-0 transition-transform duration-700 ease-out will-change-transform"
-        style={{
-          transform: `translate3d(${mouseOffset.x * 14}px, ${mouseOffset.y * 14}px, 0)`
-        }}
+        className="fixed inset-0 bg-blueprint-dots opacity-50 pointer-events-none z-0"
       />
 
-      {/* Atmospheric Ambient Glow Orbs with Floating Parallax (Light) */}
-      <div 
-        className="fixed top-[-15%] left-[-10%] w-[650px] h-[650px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none z-0 animate-float-slow transition-transform duration-1000 ease-out will-change-transform"
-        style={{
-          transform: `translate3d(${mouseOffset.x * 35}px, ${mouseOffset.y * 35}px, 0)`
-        }}
-      />
-      <div 
-        className="fixed bottom-[-15%] right-[-10%] w-[750px] h-[750px] bg-indigo-500/08 rounded-full blur-3xl pointer-events-none z-0 animate-float-reverse transition-transform duration-1000 ease-out will-change-transform"
-        style={{
-          transform: `translate3d(${-mouseOffset.x * 45}px, ${-mouseOffset.y * 45}px, 0)`
-        }}
-      />
-
-      {/* NO-PRINT SCREEN APPLICATION */}
-      <div className="no-print flex-1 flex flex-col relative z-10">
-        
-        {/* Institutional Header (Light Theme) */}
-        <header className="bg-white/90 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-xs h-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-4">
-            
-            {/* Logo & National Directorate Title */}
-            <div className="flex items-center gap-3">
-              <motion.div 
-                whileHover={{ scale: 1.08, rotate: 3 }}
-                className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center text-white font-black shadow-[0_4px_15px_rgba(37,99,235,0.3)] text-lg shrink-0 cursor-pointer"
-              >
-                ⚖️
-              </motion.div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
-                    DigiNirikshak
-                  </h1>
-                  <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.2 rounded border border-blue-200 shadow-2xs">
-                    SIH26034
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 -mt-0.5">
-                  <span className="text-[11px] font-medium text-slate-500">
-                    Legal Metrology Command Terminal
-                  </span>
-                  <span className="text-slate-400 text-[10px]">•</span>
-                  <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-700">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_6px_#10b981]"></span>
-                    </span>
-                    <span>ONLINE</span>
-                  </div>
-                </div>
+      {/* Institutional Top Header */}
+      <header className="bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-xs h-15">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-3">
+          
+          {/* Logo & Directorate Title */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 flex items-center justify-center text-white font-black shadow-md text-base sm:text-lg shrink-0">
+              ⚖️
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-tight">
+                  DigiNirikshak
+                </h1>
+                <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                  RAID SUITE
+                </span>
               </div>
+              <span className="text-[10px] text-slate-500 hidden sm:block">
+                Legal Metrology Factory Raid & Statutory Packet Scanner
+              </span>
             </div>
-
-            {/* View Mode Switcher Pills (Light Theme) */}
-            <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setViewMode('command')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'command'
-                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
-                <span>Command Hub</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode('inspect')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'inspect'
-                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Search className="w-3.5 h-3.5 text-blue-600" />
-                <span>Inspection Deck</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode('dossier')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'dossier'
-                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5 text-blue-600" />
-                <span>Show Cause Notice</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setViewMode('history')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'history'
-                    ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <History className="w-3.5 h-3.5 text-blue-600" />
-                <span>Ledger History</span>
-              </button>
-            </div>
-
-            {/* Right: Persona Switcher, OCR Log & Logout */}
-            <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={() => setIsOcrDrawerOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-mono font-bold cursor-pointer shadow-xs"
-                title="Open Raw Tesseract OCR Terminal Drawer"
-              >
-                <Terminal className="w-3.5 h-3.5 text-blue-600" />
-                <span>OCR Log</span>
-              </motion.button>
-
-              <HeaderProfile
-                userRole={userRole}
-                onRoleChange={setUserRole}
-                officerProfile={officerProfile}
-                citizenProfile={citizenProfile}
-              />
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                type="button"
-                onClick={handleLogout}
-                className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-300 text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-xs"
-                title="Logout Session"
-              >
-                <LogOut className="w-4 h-4" />
-              </motion.button>
-            </div>
-
           </div>
-        </header>
 
-        {/* Dynamic Telemetry Status Ticker (Light Theme) */}
-        <div className="bg-blue-50/80 border-b border-blue-100/90 px-4 py-1.5 text-[11px] font-mono text-slate-600">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 overflow-x-auto whitespace-nowrap">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5 text-blue-700 font-bold">
-                <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-                <span>DOCKET: #{sampleMeta.batchNo}</span>
-              </span>
-              <span className="text-slate-300">|</span>
-              <span className="text-slate-800 font-medium">{sampleMeta.name}</span>
-              <span className="text-slate-300">|</span>
-              <span className="text-emerald-700 font-bold bg-emerald-100/80 px-2 py-0.2 rounded border border-emerald-200">🟢 WASM-Tesseract 7.0 Ready</span>
-            </div>
+          {/* Desktop View Switcher Pills */}
+          <div className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('hub')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'hub'
+                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-blue-600" />
+              <span>Command Hub</span>
+            </button>
 
-            <div className="flex items-center gap-3">
-              <span className="text-slate-600">
-                Active User: <strong className={userRole === 'officer' ? 'text-emerald-800' : 'text-blue-800'}>
-                  {activeProfile.name} ({activeProfile.badge})
-                </strong>
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setViewMode('scan')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'scan'
+                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5 text-blue-600" />
+              <span>Camera & Packet</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('audit')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'audit'
+                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>Audit Findings</span>
+              {isAuditComplete && totalDefects > 0 && (
+                <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] flex items-center justify-center font-mono font-bold">
+                  {totalDefects}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('history')}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'history'
+                  ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-blue-600" />
+              <span>Raid Log</span>
+            </button>
+          </div>
+
+          {/* Right Header Controls: Rapid Next Packet, OCR Log, Profile, Logout */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Quick Next Packet Scan Button */}
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.95 }}
+              type="button"
+              onClick={handleScanNextPacket}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Quickly clear and scan next packet sample"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Scan Next Packet</span>
+              <span className="sm:hidden">Next</span>
+            </motion.button>
+
+            {/* Raw OCR Modal Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsOcrDrawerOpen(true)}
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-mono font-bold cursor-pointer shadow-xs"
+              title="Open raw OCR text console"
+            >
+              <Terminal className="w-3.5 h-3.5 text-blue-600" />
+              <span>OCR Log</span>
+            </button>
+
+            <HeaderProfile
+              userRole={userRole}
+              onRoleChange={setUserRole}
+              officerProfile={officerProfile}
+              citizenProfile={citizenProfile}
+            />
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-xs"
+              title="Logout Session"
+            >
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+        </div>
+      </header>
+
+      {/* Raid Status Ticker */}
+      <div className="bg-blue-50/90 border-b border-blue-100 px-3 sm:px-4 py-1.5 text-[11px] font-mono text-slate-600 z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto whitespace-nowrap">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="flex items-center gap-1 text-blue-700 font-bold">
+              <Activity className="w-3 h-3 text-blue-600 animate-pulse" />
+              <span>BATCH: #{sampleMeta.batchNo}</span>
+            </span>
+            <span className="text-slate-300">|</span>
+            <span className="text-slate-800 font-medium truncate max-w-[150px] sm:max-w-xs">{sampleMeta.name}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isAuditComplete && (
+              totalDefects === 0 ? (
+                <span className="text-emerald-800 font-black bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3 text-emerald-600" />
+                  <span>100% COMPLIANT</span>
+                </span>
+              ) : (
+                <span className="text-rose-800 font-black bg-rose-100 px-2 py-0.5 rounded border border-rose-300 flex items-center gap-1">
+                  <XCircle className="w-3 h-3 text-rose-600" />
+                  <span>{totalDefects} ISSUES DETECTED</span>
+                </span>
+              )
+            )}
+            <span className="text-slate-500 hidden sm:inline">
+              Officer: <strong className="text-slate-800">{activeProfile.name}</strong>
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* MAIN WORKSPACE */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex-1 flex flex-col gap-5 w-full">
-          
-          {/* LAYOUT 1: FULL 3-DECK COMMAND HUB */}
-          {viewMode === 'command' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start"
-            >
-              {/* DECK 1 (Left 4 cols): Evidence Bay & Packaging Viewport */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                <EvidenceDeck
-                  labelImage={labelImage}
-                  onUploadLabel={handleUploadLabel}
-                  onLoadSample={handleLoadSample}
-                  onRunAudit={() => executeOcrAudit(labelImage, sampleMeta)}
-                  isScanning={isScanning}
-                  scanProgress={scanProgress}
-                  scanStatusText={scanStatusText}
-                  rules={rules}
-                  hoveredRuleId={hoveredRuleId}
-                  tamperResult={tamperResult}
-                  onCropAndRescan={handleCropAndRescan}
-                  onResetView={handleResetView}
-                  sampleMeta={sampleMeta}
-                />
-              </div>
-
-              {/* DECK 2 (Center 4 cols): Forensic Compliance Matrix */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                <ForensicMatrixDeck
-                  userRole={userRole}
-                  activeProfile={activeProfile}
-                  sellerName={sellerName}
-                  onSellerNameChange={setSellerName}
-                  rules={rules}
-                  tamperResult={tamperResult}
-                  parsedDeclaredQty={parsedDeclaredQty}
-                  parsedDeclaredUnit={parsedDeclaredUnit}
-                  scaleWeight={scaleWeight}
-                  onScaleWeightChange={setScaleWeight}
-                  mpeAuditResult={mpeAuditResult}
-                  hoveredRuleId={hoveredRuleId}
-                  onHoverRule={setHoveredRuleId}
-                  onToggleRuleStatus={handleToggleRuleStatus}
-                  onSaveRuleSnippet={handleSaveRuleSnippet}
-                />
-              </div>
-
-              {/* DECK 3 (Right 4 cols): Real-Time Show Cause Notice Dossier */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                <EnforcementDossierDeck
-                  userRole={userRole}
-                  activeProfile={activeProfile}
-                  sellerName={sellerName}
-                  sampleMeta={sampleMeta}
-                  rules={rules}
-                  tamperResult={tamperResult}
-                  mpeAuditResult={mpeAuditResult}
-                  inspectorName={inspectorName}
-                  inspectionRef={inspectionRef}
-                  onResetAll={handleResetAll}
-                />
-              </div>
-            </motion.div>
-          )}
-
-          {/* LAYOUT 2: INSPECTION FOCUS (2-Column Expanded) */}
-          {viewMode === 'inspect' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3 }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start"
-            >
+      {/* MAIN WORKSPACE CONTENT */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5 flex-1 flex flex-col gap-4 w-full z-10">
+        
+        {/* LAYOUT 1: COMMAND HUB (Dual-deck side-by-side or stacked) */}
+        {viewMode === 'hub' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Left 5 cols: Evidence Bay & Packet Capture */}
+            <div className="lg:col-span-5 flex flex-col gap-4">
               <EvidenceDeck
                 labelImage={labelImage}
                 onUploadLabel={handleUploadLabel}
@@ -655,7 +581,10 @@ export default function App() {
                 onResetView={handleResetView}
                 sampleMeta={sampleMeta}
               />
+            </div>
 
+            {/* Right 7 cols: Forensic Findings (Correctly Done vs NOT Correctly Done) */}
+            <div className="lg:col-span-7 flex flex-col gap-4">
               <ForensicMatrixDeck
                 userRole={userRole}
                 activeProfile={activeProfile}
@@ -673,88 +602,152 @@ export default function App() {
                 onToggleRuleStatus={handleToggleRuleStatus}
                 onSaveRuleSnippet={handleSaveRuleSnippet}
               />
-            </motion.div>
-          )}
-
-          {/* LAYOUT 3: LEGAL NOTICE FOCUS */}
-          {viewMode === 'dossier' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3 }}
-              className="max-w-4xl mx-auto w-full"
-            >
-              <EnforcementDossierDeck
-                userRole={userRole}
-                activeProfile={activeProfile}
-                sellerName={sellerName}
-                sampleMeta={sampleMeta}
-                rules={rules}
-                tamperResult={tamperResult}
-                mpeAuditResult={mpeAuditResult}
-                inspectorName={inspectorName}
-                inspectionRef={inspectionRef}
-                onResetAll={handleResetAll}
-              />
-            </motion.div>
-          )}
-
-          {/* LAYOUT 4: AUDIT HISTORY LEDGER & NOTICE DISPATCH TRACKER */}
-          {viewMode === 'history' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.3 }}
-              className="w-full"
-            >
-              <HistoryDeck 
-                onViewNotice={handleViewNoticeFromHistory}
-                activeProfile={activeProfile}
-              />
-            </motion.div>
-          )}
-
-        </main>
-
-        {/* Global Terminal Footer (Light Theme) */}
-        <footer className="mt-auto border-t border-slate-200 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-500">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px]">
-            <span className="flex items-center gap-1.5 text-slate-700">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-              <span>DigiNirikshak • SIH Problem Statement SIH26034 (DoCA)</span>
-            </span>
-            <span className="text-slate-500">Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011 • Rule 32 SCN</span>
+            </div>
           </div>
-        </footer>
+        )}
 
-        {/* Raw OCR Modal Drawer */}
-        <RawTextDrawer
-          isOpen={isOcrDrawerOpen}
-          onClose={() => setIsOcrDrawerOpen(false)}
-          rawText={rawOcrText}
-          confidence={ocrConfidence}
-          isScanning={isScanning}
-        />
+        {/* LAYOUT 2: CAMERA & PACKET SCAN FULL VIEW */}
+        {viewMode === 'scan' && (
+          <div className="max-w-3xl mx-auto w-full">
+            <EvidenceDeck
+              labelImage={labelImage}
+              onUploadLabel={handleUploadLabel}
+              onLoadSample={handleLoadSample}
+              onRunAudit={() => executeOcrAudit(labelImage, sampleMeta)}
+              isScanning={isScanning}
+              scanProgress={scanProgress}
+              scanStatusText={scanStatusText}
+              rules={rules}
+              hoveredRuleId={hoveredRuleId}
+              tamperResult={tamperResult}
+              onCropAndRescan={handleCropAndRescan}
+              onResetView={handleResetView}
+              sampleMeta={sampleMeta}
+            />
+            {isAuditComplete && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('audit')}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
+                >
+                  <span>View Audit Findings ({rules.length} verified)</span>
+                  <span>→</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-      </div>
+        {/* LAYOUT 3: AUDIT FINDINGS FULL VIEW (Which things are correctly done vs not) */}
+        {viewMode === 'audit' && (
+          <div className="max-w-4xl mx-auto w-full">
+            <ForensicMatrixDeck
+              userRole={userRole}
+              activeProfile={activeProfile}
+              sellerName={sellerName}
+              onSellerNameChange={setSellerName}
+              rules={rules}
+              tamperResult={tamperResult}
+              parsedDeclaredQty={parsedDeclaredQty}
+              parsedDeclaredUnit={parsedDeclaredUnit}
+              scaleWeight={scaleWeight}
+              onScaleWeightChange={setScaleWeight}
+              mpeAuditResult={mpeAuditResult}
+              hoveredRuleId={hoveredRuleId}
+              onHoverRule={setHoveredRuleId}
+              onToggleRuleStatus={handleToggleRuleStatus}
+              onSaveRuleSnippet={handleSaveRuleSnippet}
+            />
+          </div>
+        )}
 
-      {/* PRINT-ONLY ROOT (Authentic A4 Paper Print) */}
-      <div className="print-only p-4">
-        <EnforcementDossierDeck
-          userRole={userRole}
-          activeProfile={activeProfile}
-          sellerName={sellerName}
-          sampleMeta={sampleMeta}
-          rules={rules}
-          tamperResult={tamperResult}
-          mpeAuditResult={mpeAuditResult}
-          inspectorName={inspectorName}
-          inspectionRef={inspectionRef}
-          onResetAll={() => {}}
-        />
-      </div>
+        {/* LAYOUT 4: FACTORY RAID INSPECTION LOG */}
+        {viewMode === 'history' && (
+          <div className="w-full">
+            <HistoryDeck 
+              activeProfile={activeProfile}
+            />
+          </div>
+        )}
+
+      </main>
+
+      {/* Global Terminal Footer (Desktop only) */}
+      <footer className="mt-auto border-t border-slate-200 bg-white/90 backdrop-blur-md py-3 text-xs text-slate-500 hidden md:block z-10">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px]">
+          <span className="flex items-center gap-1.5 text-slate-700">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+            <span>DigiNirikshak • SIH Problem Statement SIH26034 (DoCA)</span>
+          </span>
+          <span className="text-slate-500">Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011</span>
+        </div>
+      </footer>
+
+      {/* MOBILE STICKY BOTTOM ACTION BAR (Engineered for field officers during factory raids) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-around">
+        {/* 1. Camera / Scan */}
+        <button
+          type="button"
+          onClick={() => setViewMode('scan')}
+          className={`flex-1 flex flex-col items-center py-1 rounded-xl transition-all cursor-pointer ${
+            viewMode === 'scan' ? 'text-blue-600 font-black' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Camera className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Scan Packet</span>
+        </button>
+
+        {/* 2. Audit Findings (Correct vs Not Correct) */}
+        <button
+          type="button"
+          onClick={() => setViewMode('audit')}
+          className={`flex-1 flex flex-col items-center py-1 rounded-xl transition-all relative cursor-pointer ${
+            viewMode === 'audit' ? 'text-blue-600 font-black' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ClipboardCheck className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Findings</span>
+          {isAuditComplete && totalDefects > 0 && (
+            <span className="absolute top-0 right-5 w-4 h-4 bg-rose-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center font-mono">
+              {totalDefects}
+            </span>
+          )}
+        </button>
+
+        {/* 3. Command Hub (Overview) */}
+        <button
+          type="button"
+          onClick={() => setViewMode('hub')}
+          className={`flex-1 flex flex-col items-center py-1 rounded-xl transition-all cursor-pointer ${
+            viewMode === 'hub' ? 'text-blue-600 font-black' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <LayoutGrid className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Command Hub</span>
+        </button>
+
+        {/* 4. Raid Log */}
+        <button
+          type="button"
+          onClick={() => setViewMode('history')}
+          className={`flex-1 flex flex-col items-center py-1 rounded-xl transition-all cursor-pointer ${
+            viewMode === 'history' ? 'text-blue-600 font-black' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <History className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px]">Raid Log</span>
+        </button>
+      </nav>
+
+      {/* Raw OCR Modal Drawer */}
+      <RawTextDrawer
+        isOpen={isOcrDrawerOpen}
+        onClose={() => setIsOcrDrawerOpen(false)}
+        rawText={rawOcrText}
+        confidence={ocrConfidence}
+        isScanning={isScanning}
+      />
 
     </div>
   );

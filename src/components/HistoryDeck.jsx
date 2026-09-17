@@ -4,36 +4,25 @@ import {
   Search, 
   CheckCircle2, 
   AlertTriangle, 
-  Send, 
-  FileText, 
   Clock, 
   Building2, 
-  Filter,
-  Check,
-  RotateCcw,
-  ShieldCheck,
-  MailCheck
+  RotateCcw, 
+  ShieldCheck, 
+  Scale,
+  PackageCheck,
+  PackageX
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getAuditHistory, markNoticeDispatched, resetHistoryToDefault } from '../utils/historyStorage';
+import { motion } from 'framer-motion';
+import { getAuditHistory, resetHistoryToDefault } from '../utils/historyStorage';
 
-export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfile = null }) {
+export default function HistoryDeck({ onSelectRecord, activeProfile = null }) {
   const [records, setRecords] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterVerdict, setFilterVerdict] = useState('ALL'); // 'ALL' | 'VIOLATION' | 'PASSED' | 'DISPATCHED' | 'PENDING'
-  const [actionSuccessId, setActionSuccessId] = useState(null);
+  const [filterVerdict, setFilterVerdict] = useState('ALL'); // 'ALL' | 'VIOLATION' | 'PASSED'
 
   useEffect(() => {
     setRecords(getAuditHistory());
   }, []);
-
-  const handleDispatch = (recordId) => {
-    const senderEmail = activeProfile?.email || 'rajesh.kumar@doca.gov.in';
-    const updated = markNoticeDispatched(recordId, null, senderEmail);
-    setRecords(updated);
-    setActionSuccessId(recordId);
-    setTimeout(() => setActionSuccessId(null), 2500);
-  };
 
   const handleResetLedger = () => {
     const reset = resetHistoryToDefault();
@@ -52,30 +41,32 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
 
     if (filterVerdict === 'VIOLATION') return r.verdict === 'VIOLATION';
     if (filterVerdict === 'PASSED') return r.verdict === 'PASSED';
-    if (filterVerdict === 'DISPATCHED') return r.noticeStatus === 'DISPATCHED';
-    if (filterVerdict === 'PENDING') return r.noticeStatus === 'PENDING';
 
     return true;
   });
 
+  const totalInspected = records.length;
+  const compliantCount = records.filter(r => r.verdict === 'PASSED').length;
+  const violationCount = records.filter(r => r.verdict === 'VIOLATION').length;
+
   return (
-    <div className="cyber-card rounded-2xl p-5 sm:p-6 flex flex-col gap-5 relative overflow-hidden">
+    <div className="cyber-card rounded-2xl p-4 sm:p-6 flex flex-col gap-4 relative overflow-hidden">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black shadow-md shrink-0">
             <History className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
-              <span>Statutory Inspection Ledger & Notice Dispatch Log</span>
+              <span>Factory Raid Inspection Log</span>
               <span className="text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded">
                 AUDIT TRAIL
               </span>
             </h2>
-            <p className="text-xs text-slate-600">
-              Track inspected companies, batch numbers, compliance verdicts, and statutory Show Cause Notice dispatch statuses
+            <p className="text-xs text-slate-500">
+              Complete on-site ledger of inspected factory batches, weights, and compliance results
             </p>
           </div>
         </div>
@@ -84,41 +75,54 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
           type="button"
           onClick={handleResetLedger}
           className="text-xs font-mono text-slate-500 hover:text-blue-600 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer transition-colors"
-          title="Reset ledger to initial factory sample audit records"
+          title="Reset ledger to default factory audit records"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Ledger</span>
+          <span>Reset Log</span>
         </button>
       </div>
 
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-3 gap-2 font-mono text-xs">
+        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center sm:text-left">
+          <span className="text-[10px] text-slate-500 block uppercase">Inspected</span>
+          <span className="text-sm sm:text-base font-black text-slate-900">{totalInspected} Batches</span>
+        </div>
+        <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200 text-center sm:text-left">
+          <span className="text-[10px] text-emerald-700 block uppercase">Compliant</span>
+          <span className="text-sm sm:text-base font-black text-emerald-900">{compliantCount} Passed</span>
+        </div>
+        <div className="bg-rose-50/70 p-2.5 rounded-xl border border-rose-200 text-center sm:text-left">
+          <span className="text-[10px] text-rose-700 block uppercase">Defects</span>
+          <span className="text-sm sm:text-base font-black text-rose-900">{violationCount} Flagged</span>
+        </div>
+      </div>
+
       {/* Search & Filter Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search company, brand, batch ID..."
+            placeholder="Search brand, batch number..."
             className="w-full text-xs pl-9 pr-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 shadow-xs"
           />
         </div>
 
         {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto font-mono text-xs">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto font-mono text-xs">
           {[
-            { id: 'ALL', label: 'All Batches' },
-            { id: 'VIOLATION', label: 'Violations' },
-            { id: 'PASSED', label: 'Passed' },
-            { id: 'DISPATCHED', label: 'Notice Sent' },
-            { id: 'PENDING', label: 'Notice Pending' }
+            { id: 'ALL', label: 'All' },
+            { id: 'PASSED', label: 'Compliant' },
+            { id: 'VIOLATION', label: 'Violations' }
           ].map(tab => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setFilterVerdict(tab.id)}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg font-bold transition-all cursor-pointer text-center ${
                 filterVerdict === tab.id
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -130,24 +134,81 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
         </div>
       </div>
 
-      {/* Ledger Table */}
-      <div className="w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+      {/* Mobile Card List (< sm screens) */}
+      <div className="flex flex-col gap-2.5 sm:hidden">
+        {filteredRecords.length > 0 ? (
+          filteredRecords.map(record => {
+            const isPass = record.verdict === 'PASSED';
+            return (
+              <div 
+                key={record.id}
+                className={`p-3 rounded-xl border flex flex-col gap-2 bg-white ${
+                  isPass ? 'border-emerald-200 shadow-2xs' : 'border-rose-200 shadow-xs'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                      #{record.batchNo}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">
+                      {record.commodity}
+                    </h4>
+                    <span className="text-[10px] text-slate-500">
+                      {record.companyName}
+                    </span>
+                  </div>
+
+                  <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded ${
+                    isPass 
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' 
+                      : 'bg-rose-100 text-rose-900 border border-rose-300'
+                  }`}>
+                    {isPass ? '0 DEFECTS' : `${record.violationsCount} DEFECTS`}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] font-mono bg-slate-50 p-2 rounded-lg text-slate-600">
+                  <span>Weight: <strong>{record.measuredWeight || 'N/A'}</strong> (Decl: {record.declaredQty || 'N/A'})</span>
+                  <span className="text-slate-400">{record.timestamp}</span>
+                </div>
+
+                {!isPass && record.violationDetails && record.violationDetails.length > 0 && (
+                  <div className="text-[10px] text-rose-800 bg-rose-50/70 p-2 rounded border border-rose-100">
+                    <span className="font-bold block mb-0.5">Issues Found:</span>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {record.violationDetails.map((v, i) => (
+                        <li key={i} className="line-clamp-1">{v}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="p-6 text-center text-slate-500 text-xs font-mono">
+            No raid inspection records match.
+          </div>
+        )}
+      </div>
+
+      {/* Desktop / Tablet Table (>= sm screens) */}
+      <div className="hidden sm:block w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
         <table className="w-full text-left text-xs font-sans border-collapse">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 font-mono text-[11px] text-slate-600">
               <th className="p-3">Company & Commodity</th>
               <th className="p-3">Batch & Timestamp</th>
+              <th className="p-3">Scale Weight</th>
               <th className="p-3">Audit Verdict</th>
-              <th className="p-3">Show Cause Notice Status</th>
-              <th className="p-3 text-right">Actions</th>
+              <th className="p-3">Inspected By</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredRecords.length > 0 ? (
               filteredRecords.map((record) => {
                 const isPass = record.verdict === 'PASSED';
-                const isDispatched = record.noticeStatus === 'DISPATCHED';
-                const isPending = record.noticeStatus === 'PENDING';
 
                 return (
                   <tr 
@@ -176,6 +237,12 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
                       </div>
                     </td>
 
+                    {/* Scale Weight */}
+                    <td className="p-3 font-mono text-[11px]">
+                      <span className="text-slate-800 font-bold">{record.measuredWeight || 'N/A'}</span>
+                      <span className="text-slate-400 block text-[10px]">Decl: {record.declaredQty || 'N/A'}</span>
+                    </td>
+
                     {/* Verdict */}
                     <td className="p-3">
                       {isPass ? (
@@ -187,7 +254,7 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
                         <div className="flex flex-col gap-1">
                           <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-rose-50 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-md shadow-xs w-fit">
                             <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                            <span>{record.violationsCount} VIOLATIONS DETECTED</span>
+                            <span>{record.violationsCount} DEFECTS FOUND</span>
                           </span>
                           {record.violationDetails && record.violationDetails.length > 0 && (
                             <span className="text-[10px] text-slate-500 line-clamp-1 max-w-xs" title={record.violationDetails.join(' | ')}>
@@ -198,76 +265,9 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
                       )}
                     </td>
 
-                    {/* Show Cause Notice Status */}
-                    <td className="p-3">
-                      {isPass ? (
-                        <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          CLEARED • NO NOTICE REQUIRED
-                        </span>
-                      ) : isDispatched ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-black text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded w-fit shadow-xs">
-                            <MailCheck className="w-3 h-3 text-emerald-600" />
-                            <span>NOTICE DISPATCHED</span>
-                          </span>
-                          <span className="text-[9px] font-mono text-slate-700 flex items-center gap-1">
-                            From: <strong className="text-blue-700">{record.dispatchedFromEmail || activeProfile?.email || 'rajesh.kumar@doca.gov.in'}</strong>
-                          </span>
-                          <span className="text-[9px] font-mono text-slate-500">
-                            Sent: {record.noticeDispatchedAt}
-                          </span>
-                          {record.dispatchTrackingNo && (
-                            <span className="text-[9px] font-mono text-blue-700 font-semibold">
-                              Tracking: {record.dispatchTrackingNo}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-black text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded w-fit shadow-xs">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>NOTICE PENDING DISPATCH</span>
-                          </span>
-                          <span className="text-[9px] text-slate-500 font-mono">
-                            Sender: {activeProfile?.email || 'rajesh.kumar@doca.gov.in'}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {!isPass && isPending && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            type="button"
-                            onClick={() => handleDispatch(record.id)}
-                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase font-mono shadow-xs transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <Send className="w-3 h-3 text-white" />
-                            <span>Dispatch Notice</span>
-                          </motion.button>
-                        )}
-
-                        {actionSuccessId === record.id && (
-                          <span className="text-[10px] font-mono text-emerald-600 font-bold flex items-center gap-1">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            <span>Dispatched!</span>
-                          </span>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => onViewNotice && onViewNotice(record)}
-                          className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer hover:border-blue-500 shadow-xs transition-colors"
-                          title="View Show Cause Legal Notice"
-                        >
-                          <FileText className="w-3 h-3 text-blue-600" />
-                          <span>View Notice</span>
-                        </button>
-                      </div>
+                    {/* Inspector */}
+                    <td className="p-3 text-slate-600 font-mono text-[10px]">
+                      {record.inspectorName || 'Insp. Rajesh Kumar'}
                     </td>
                   </tr>
                 );
@@ -275,38 +275,12 @@ export default function HistoryDeck({ onSelectRecord, onViewNotice, activeProfil
             ) : (
               <tr>
                 <td colSpan="5" className="p-6 text-center text-slate-500 text-xs font-mono">
-                  No inspection records match the current filter or search criteria.
+                  No raid records match the current filter criteria.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Ledger Summary Stats Footer */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs pt-1 border-t border-slate-200 text-slate-600">
-        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-          <span className="text-[10px] text-slate-500 block">TOTAL INSPECTED</span>
-          <span className="text-sm font-black text-slate-900">{records.length} Batches</span>
-        </div>
-        <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
-          <span className="text-[10px] text-emerald-700 block">COMPLIANT PASSED</span>
-          <span className="text-sm font-black text-emerald-900">
-            {records.filter(r => r.verdict === 'PASSED').length}
-          </span>
-        </div>
-        <div className="bg-rose-50/70 p-2.5 rounded-xl border border-rose-200">
-          <span className="text-[10px] text-rose-700 block">DEFECTS FLAGGED</span>
-          <span className="text-sm font-black text-rose-900">
-            {records.filter(r => r.verdict === 'VIOLATION').length}
-          </span>
-        </div>
-        <div className="bg-blue-50/70 p-2.5 rounded-xl border border-blue-200">
-          <span className="text-[10px] text-blue-700 block">NOTICES DISPATCHED</span>
-          <span className="text-sm font-black text-blue-900">
-            {records.filter(r => r.noticeStatus === 'DISPATCHED').length}
-          </span>
-        </div>
       </div>
 
     </div>
