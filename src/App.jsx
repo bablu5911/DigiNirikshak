@@ -15,7 +15,9 @@ import {
   ClipboardCheck,
   RotateCcw,
   CheckCircle,
-  XCircle
+  XCircle,
+  QrCode,
+  FlaskConical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,13 +29,14 @@ import LoginPage from './components/LoginPage';
 import RawTextDrawer from './components/RawTextDrawer';
 
 import { runOcr } from './utils/ocrEngine';
+import { decodeQrFromImage } from './utils/qrEngine';
 import { evaluateCompliance } from './utils/rulesEngine';
 import { auditPhysicalScaleWeight } from './utils/mpeCalculator';
 import { generateSamplePack } from './data/sampleImages';
 import { saveAuditRecord } from './utils/historyStorage';
 
 export default function App() {
-  // Session Authentication State (Defaults to true if previously logged in)
+  // Session Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('diginirikshak_auth') === 'true';
   });
@@ -132,6 +135,10 @@ export default function App() {
   const [rawOcrText, setRawOcrText] = useState('');
   const [ocrConfidence, setOcrConfidence] = useState(0);
 
+  // QR Code & Ingredient Safety Findings
+  const [qrResult, setQrResult] = useState(null);
+  const [ingredientSafetyResult, setIngredientSafetyResult] = useState(null);
+
   // Evaluated Rules & Fraud Findings
   const [rules, setRules] = useState([]);
   const [tamperResult, setTamperResult] = useState(null);
@@ -199,6 +206,8 @@ export default function App() {
       setOriginalLabelImage(null);
       setRules([]);
       setTamperResult(null);
+      setQrResult(null);
+      setIngredientSafetyResult(null);
       setRawOcrText('');
       setOcrConfidence(0);
       return;
@@ -215,30 +224,38 @@ export default function App() {
     executeOcrAudit(dataUrl, newMeta);
   };
 
-  // Core OCR Execution Pipeline & Automated History Recording
+  // Core Audit Pipeline: Dual Engine (WASM Tesseract OCR + jsQR Decoder)
   const executeOcrAudit = async (imageSource, meta) => {
     setIsScanning(true);
     setScanProgress(0);
-    setScanStatusText('Preprocessing high-contrast packaging canvas...');
+    setScanStatusText('Scanning OCR & Decoding statutory QR code...');
 
     try {
-      const { text, confidence } = await runOcr(imageSource, (pct, status) => {
-        setScanProgress(pct);
-        setScanStatusText(status);
-      });
+      // Run OCR & QR decoding simultaneously
+      const [ocrData, qrData] = await Promise.all([
+        runOcr(imageSource, (pct, status) => {
+          setScanProgress(pct);
+          setScanStatusText(status);
+        }),
+        decodeQrFromImage(imageSource)
+      ]);
 
+      const { text, confidence } = ocrData;
       setRawOcrText(text);
       setOcrConfidence(confidence);
+      setQrResult(qrData);
 
       const { 
         rules: evaluatedRules, 
         tamperResult: tamperFindings, 
         parsedDeclaredQty: detectedQty,
-        parsedDeclaredUnit: detectedUnit
-      } = evaluateCompliance(text);
+        parsedDeclaredUnit: detectedUnit,
+        ingredientSafetyResult: ingredientFindings
+      } = evaluateCompliance(text, qrData);
 
       setRules(evaluatedRules);
       setTamperResult(tamperFindings);
+      setIngredientSafetyResult(ingredientFindings);
 
       let currentAuditResult = null;
       if (detectedQty) {
@@ -253,7 +270,10 @@ export default function App() {
       const compliant = evaluatedRules.filter(r => r.status === 'PASS');
       const isTampered = Boolean(tamperFindings?.hasTampering);
       const isShort = Boolean(currentAuditResult?.isShortWeight);
-      const hasDefects = flagged.length > 0 || isTampered || isShort;
+      const ingredientViolations = ingredientFindings?.ingredientViolations || [];
+      const qrViolations = qrData?.qrViolations || [];
+      const totalViolations = flagged.length + (isTampered ? 1 : 0) + (isShort ? 1 : 0) + ingredientViolations.length + qrViolations.length;
+      const hasDefects = totalViolations > 0;
 
       saveAuditRecord({
         id: 'HIST-' + (meta.batchNo || 'PKG-2026'),
@@ -263,20 +283,26 @@ export default function App() {
         timestamp: meta.timestamp || new Date().toLocaleDateString('en-IN'),
         inspectorName: activeProfile.name,
         verdict: hasDefects ? 'VIOLATION' : 'PASSED',
-        violationsCount: flagged.length + (isTampered ? 1 : 0) + (isShort ? 1 : 0),
+        violationsCount: totalViolations,
         violationDetails: [
+          ...ingredientViolations.map(iv => `Food Safety Hazard: ${iv.title}`),
           ...(isTampered ? ['Rule 18(2): Unauthorized price alteration / over-stickering'] : []),
           ...(isShort ? [`Section 39: Physical weight deficit beyond legal MPE`] : []),
+          ...qrViolations.map(qv => `QR Defect: ${qv.title}`),
           ...flagged.map(f => `${f.name}: ${f.defectExplanation || f.description || 'Statutory declaration missing'}`)
         ],
-        compliantDetails: compliant.map(c => `${c.name}: Verified compliant`),
+        compliantDetails: [
+          ...compliant.map(c => `${c.name}: Verified compliant`),
+          ...(ingredientViolations.length === 0 ? ['Food Safety: Ingredients verified within permissible limits'] : []),
+          ...(qrData?.hasQr ? ['QR Code: Statutory payload decoded'] : [])
+        ],
         declaredQty: `${detectedQty || 200}${detectedUnit || 'g'}`,
         measuredWeight: `${scaleWeight || 200}${detectedUnit || 'g'}`
       });
 
     } catch (err) {
       console.error('Audit execution error:', err);
-      setScanStatusText('OCR execution encountered an error. Please retry or crop region.');
+      setScanStatusText('Execution encountered an error. Please retry or crop region.');
     } finally {
       setIsScanning(false);
     }
@@ -290,23 +316,30 @@ export default function App() {
     setScanStatusText('Scanning cropped sub-region...');
 
     try {
-      const { text, confidence } = await runOcr(croppedDataUrl, (pct, status) => {
-        setScanProgress(pct);
-        setScanStatusText(status);
-      });
+      const [ocrData, qrData] = await Promise.all([
+        runOcr(croppedDataUrl, (pct, status) => {
+          setScanProgress(pct);
+          setScanStatusText(status);
+        }),
+        decodeQrFromImage(croppedDataUrl)
+      ]);
 
+      const { text, confidence } = ocrData;
       setRawOcrText(text);
       setOcrConfidence(confidence);
+      setQrResult(qrData);
 
       const { 
         rules: evaluatedRules, 
         tamperResult: tamperFindings, 
         parsedDeclaredQty: detectedQty,
-        parsedDeclaredUnit: detectedUnit
-      } = evaluateCompliance(text);
+        parsedDeclaredUnit: detectedUnit,
+        ingredientSafetyResult: ingredientFindings
+      } = evaluateCompliance(text, qrData);
 
       setRules(evaluatedRules);
       setTamperResult(tamperFindings);
+      setIngredientSafetyResult(ingredientFindings);
 
       if (detectedQty) {
         setParsedDeclaredQty(detectedQty);
@@ -360,6 +393,8 @@ export default function App() {
     setOriginalLabelImage(null);
     setRules([]);
     setTamperResult(null);
+    setQrResult(null);
+    setIngredientSafetyResult(null);
     setRawOcrText('');
     setOcrConfidence(0);
     setScaleWeight('200');
@@ -370,7 +405,7 @@ export default function App() {
       batchNo: 'RAID-' + Math.floor(1000 + Math.random() * 9000),
       timestamp: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
     });
-    // On mobile, switch directly to scan deck
+    // Switch to scan deck
     setViewMode('scan');
   };
 
@@ -378,7 +413,9 @@ export default function App() {
   const notCorrectRules = rules.filter(r => r.status !== 'PASS');
   const isScaleViolated = Boolean(mpeAuditResult?.isShortWeight || mpeAuditResult?.isViolated);
   const isTampered = Boolean(tamperResult?.hasTampering);
-  const totalDefects = notCorrectRules.length + (isTampered ? 1 : 0) + (isScaleViolated ? 1 : 0);
+  const ingredientViolations = ingredientSafetyResult?.ingredientViolations || [];
+  const qrViolations = qrResult?.qrViolations || [];
+  const totalDefects = notCorrectRules.length + (isTampered ? 1 : 0) + (isScaleViolated ? 1 : 0) + ingredientViolations.length + qrViolations.length;
   const isAuditComplete = rules.length > 0;
 
   // If user is not logged in, render the GovTech LoginPage
@@ -390,9 +427,7 @@ export default function App() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col antialiased font-sans relative overflow-x-hidden pb-16 md:pb-0">
       
       {/* Light Blueprint Grid Background Overlay */}
-      <div 
-        className="fixed inset-0 bg-blueprint-dots opacity-50 pointer-events-none z-0"
-      />
+      <div className="fixed inset-0 bg-blueprint-dots opacity-50 pointer-events-none z-0" />
 
       {/* Institutional Top Header */}
       <header className="bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-xs h-15">
@@ -409,11 +444,11 @@ export default function App() {
                   DigiNirikshak
                 </h1>
                 <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-                  RAID SUITE
+                  RAID & QR SUITE
                 </span>
               </div>
               <span className="text-[10px] text-slate-500 hidden sm:block">
-                Legal Metrology Factory Raid & Statutory Packet Scanner
+                Legal Metrology Factory Raid, QR Forensic & FSSAI Ingredient Inspector
               </span>
             </div>
           </div>
@@ -443,7 +478,7 @@ export default function App() {
               }`}
             >
               <Camera className="w-3.5 h-3.5 text-blue-600" />
-              <span>Camera & Packet</span>
+              <span>Camera & QR</span>
             </button>
 
             <button
@@ -535,6 +570,15 @@ export default function App() {
             </span>
             <span className="text-slate-300">|</span>
             <span className="text-slate-800 font-medium truncate max-w-[150px] sm:max-w-xs">{sampleMeta.name}</span>
+            {qrResult?.hasQr && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span className="text-blue-800 font-bold bg-blue-100 px-1.5 py-0.2 rounded border border-blue-300 flex items-center gap-1">
+                  <QrCode className="w-3 h-3 text-blue-600" />
+                  <span>QR VERIFIED</span>
+                </span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -542,12 +586,12 @@ export default function App() {
               totalDefects === 0 ? (
                 <span className="text-emerald-800 font-black bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-emerald-600" />
-                  <span>100% COMPLIANT</span>
+                  <span>100% COMPLIANT & SAFE</span>
                 </span>
               ) : (
                 <span className="text-rose-800 font-black bg-rose-100 px-2 py-0.5 rounded border border-rose-300 flex items-center gap-1">
                   <XCircle className="w-3 h-3 text-rose-600" />
-                  <span>{totalDefects} ISSUES DETECTED</span>
+                  <span>{totalDefects} DEFECTS & HAZARDS</span>
                 </span>
               )
             )}
@@ -577,6 +621,7 @@ export default function App() {
                 rules={rules}
                 hoveredRuleId={hoveredRuleId}
                 tamperResult={tamperResult}
+                qrResult={qrResult}
                 onCropAndRescan={handleCropAndRescan}
                 onResetView={handleResetView}
                 sampleMeta={sampleMeta}
@@ -597,6 +642,8 @@ export default function App() {
                 scaleWeight={scaleWeight}
                 onScaleWeightChange={setScaleWeight}
                 mpeAuditResult={mpeAuditResult}
+                qrResult={qrResult}
+                ingredientSafetyResult={ingredientSafetyResult}
                 hoveredRuleId={hoveredRuleId}
                 onHoverRule={setHoveredRuleId}
                 onToggleRuleStatus={handleToggleRuleStatus}
@@ -620,6 +667,7 @@ export default function App() {
               rules={rules}
               hoveredRuleId={hoveredRuleId}
               tamperResult={tamperResult}
+              qrResult={qrResult}
               onCropAndRescan={handleCropAndRescan}
               onResetView={handleResetView}
               sampleMeta={sampleMeta}
@@ -629,9 +677,9 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setViewMode('audit')}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
                 >
-                  <span>View Audit Findings ({rules.length} verified)</span>
+                  <span>View Audit Findings ({rules.length} statutory checks)</span>
                   <span>→</span>
                 </button>
               </div>
@@ -654,6 +702,8 @@ export default function App() {
               scaleWeight={scaleWeight}
               onScaleWeightChange={setScaleWeight}
               mpeAuditResult={mpeAuditResult}
+              qrResult={qrResult}
+              ingredientSafetyResult={ingredientSafetyResult}
               hoveredRuleId={hoveredRuleId}
               onHoverRule={setHoveredRuleId}
               onToggleRuleStatus={handleToggleRuleStatus}
@@ -680,11 +730,11 @@ export default function App() {
             <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
             <span>DigiNirikshak • SIH Problem Statement SIH26034 (DoCA)</span>
           </span>
-          <span className="text-slate-500">Legal Metrology Act, 2009 & Packaged Commodities Rules, 2011</span>
+          <span className="text-slate-500">Legal Metrology Act, 2009, PCR 2011 & FSSAI Labelling Regulations</span>
         </div>
       </footer>
 
-      {/* MOBILE STICKY BOTTOM ACTION BAR (Engineered for field officers during factory raids) */}
+      {/* MOBILE STICKY BOTTOM ACTION BAR (Field Raid navigation) */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200 px-2 py-1.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-around">
         {/* 1. Camera / Scan */}
         <button
@@ -695,7 +745,7 @@ export default function App() {
           }`}
         >
           <Camera className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Scan Packet</span>
+          <span className="text-[10px]">Scan & QR</span>
         </button>
 
         {/* 2. Audit Findings (Correct vs Not Correct) */}

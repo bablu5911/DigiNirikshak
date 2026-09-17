@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Maximize2,
   Smartphone,
-  Video
+  Video,
+  QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ImageCanvas from './ImageCanvas';
@@ -29,6 +30,7 @@ export default function EvidenceDeck({
   rules = [],
   hoveredRuleId = null,
   tamperResult = null,
+  qrResult = null,
   onCropAndRescan,
   onResetView,
   sampleMeta = {}
@@ -102,37 +104,56 @@ export default function EvidenceDeck({
               </span>
             </h3>
             <p className="text-[11px] text-slate-500">
-              Instant mobile camera snap, image crop & high-speed OCR visualizer
+              Instant mobile camera snap, live QR code reader & Tesseract OCR
             </p>
           </div>
         </div>
 
-        {labelImage && (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100/90 px-2 py-1 rounded-lg border border-emerald-300 flex items-center gap-1 shadow-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>PACKET LOADED</span>
+        <div className="flex items-center gap-2">
+          {qrResult?.hasQr && (
+            <span className="text-[10px] font-mono font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-300 flex items-center gap-1 shadow-xs">
+              <QrCode className="w-3 h-3 text-blue-600" />
+              <span>QR READ</span>
             </span>
-          </div>
-        )}
+          )}
+          {labelImage && (
+            <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-lg border border-emerald-300 flex items-center gap-1 shadow-xs">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              <span>LOADED</span>
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Field Raid Quick Camera Action Buttons (Mobile-first primary triggers) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {/* Field Raid Quick Action Buttons (Camera, QR Scanner, Webcam, Gallery) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* 1. Mobile Rear Camera (Fastest for on-site raid) */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
           type="button"
           onClick={() => cameraInputRef.current?.click()}
-          className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer border border-blue-700"
+          className="p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer border border-blue-700"
           title="Open phone rear camera immediately to photograph packet"
         >
           <Camera className="w-4 h-4 text-white animate-pulse" />
-          <span>Camera Scan (Raid)</span>
+          <span>Camera Snap</span>
         </motion.button>
 
-        {/* 2. Live Webcam Modal (For laptop / USB webcams) */}
+        {/* 2. Direct QR Code Scanner Trigger */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.96 }}
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          className="p-2.5 rounded-xl border border-blue-300 bg-blue-50/80 hover:bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+          title="Scan QR code on packaging"
+        >
+          <QrCode className="w-3.5 h-3.5 text-blue-600" />
+          <span>Scan QR</span>
+        </motion.button>
+
+        {/* 3. Live Webcam Modal (For laptop / USB webcams) */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
@@ -142,10 +163,10 @@ export default function EvidenceDeck({
           title="Open live desktop webcam stream"
         >
           <Video className="w-3.5 h-3.5 text-blue-600" />
-          <span>Webcam View</span>
+          <span>Webcam</span>
         </motion.button>
 
-        {/* 3. Browse File / Gallery */}
+        {/* 4. Browse File / Gallery */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.96 }}
@@ -155,19 +176,19 @@ export default function EvidenceDeck({
           title="Upload image file from device storage"
         >
           <Upload className="w-3.5 h-3.5 text-slate-600" />
-          <span>Gallery / File</span>
+          <span>Gallery</span>
         </motion.button>
       </div>
 
-      {/* 3 Benchmark Sample Packets for Instant Testing */}
+      {/* 3 Benchmark Sample Packets for Instant Testing (With real QR and ingredient profiles) */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between text-[10px] font-mono uppercase text-slate-500 font-bold">
-          <span>Raid Test Packets (1-Tap Auto-Audit)</span>
+          <span>Raid Test Packets (QR + Nutrition + PCR)</span>
           <span className="text-blue-600">Sample Batches</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {/* Preset 1: 100% Compliant */}
+          {/* Preset 1: 100% Compliant & Safe */}
           <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.97 }}
@@ -181,15 +202,15 @@ export default function EvidenceDeck({
                 <span>NutriGold</span>
               </span>
               <span className="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.2 rounded font-mono">
-                PASS
+                100% SAFE
               </span>
             </div>
             <div className="text-[10px] text-emerald-800 font-mono">
-              200g • All 5 rules pass
+              200g • Valid QR • Clean ingredients
             </div>
           </motion.button>
 
-          {/* Preset 2: Non-compliant (Missing taxes & unit) */}
+          {/* Preset 2: Non-compliant (Missing taxes + Excessive Sodium & Palm Oil) */}
           <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.97 }}
@@ -207,11 +228,11 @@ export default function EvidenceDeck({
               </span>
             </div>
             <div className="text-[10px] text-amber-800 font-mono">
-              75g • Missing taxes & unit
+              75g • High Sodium (890mg) & Fat
             </div>
           </motion.button>
 
-          {/* Preset 3: Tampered sticker + underweight */}
+          {/* Preset 3: Tampered sticker + underweight + toxic additive */}
           <motion.button
             whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.97 }}
@@ -225,11 +246,11 @@ export default function EvidenceDeck({
                 <span>Royal Chai</span>
               </span>
               <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.2 rounded font-mono">
-                VIOLATION
+                HAZARD
               </span>
             </div>
             <div className="text-[10px] text-rose-800 font-mono">
-              Rule 18(2) sticker + short-wt
+              Price Sticker + Metanil Dye + Deficit
             </div>
           </motion.button>
         </div>
@@ -260,10 +281,10 @@ export default function EvidenceDeck({
               <Camera className="w-7 h-7 text-blue-600" />
             </div>
             <div className="text-sm font-black text-slate-800 group-hover:text-blue-700 transition-colors">
-              Tap to Take Photo of Packet
+              Tap to Take Photo or Scan QR
             </div>
             <span className="text-xs text-slate-500 mt-1">
-              Supports mobile camera capture, upload, or drag & drop
+              Supports mobile camera snap, statutory QR code decoding, or gallery upload
             </span>
           </div>
         )}
@@ -280,7 +301,7 @@ export default function EvidenceDeck({
               className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-              <span>Re-Scan OCR</span>
+              <span>Re-Scan OCR & QR</span>
             </button>
           )}
         </div>
@@ -308,7 +329,7 @@ export default function EvidenceDeck({
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="flex items-center gap-2 text-blue-800">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
-                <span>{scanStatusText || 'Tesseract.js OCR Pipeline Active...'}</span>
+                <span>{scanStatusText || 'WASM OCR & QR Code Decoding Active...'}</span>
               </span>
               <span className="font-mono text-blue-700 font-bold">{scanProgress}%</span>
             </div>

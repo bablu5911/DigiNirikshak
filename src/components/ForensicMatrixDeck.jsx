@@ -18,8 +18,12 @@ import {
   Store,
   CheckCircle,
   AlertCircle,
-  TrendingUp,
-  Award
+  QrCode,
+  FlaskConical,
+  HeartCrack,
+  Flame,
+  Clock,
+  FileCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,6 +39,8 @@ export default function ForensicMatrixDeck({
   scaleWeight = '200',
   onScaleWeightChange,
   mpeAuditResult = null,
+  qrResult = null,
+  ingredientSafetyResult = null,
   hoveredRuleId = null,
   onHoverRule,
   onToggleRuleStatus,
@@ -48,21 +54,35 @@ export default function ForensicMatrixDeck({
   const correctlyDoneRules = rules.filter(r => r.status === 'PASS');
   const notCorrectRules = rules.filter(r => r.status !== 'PASS');
 
+  // Ingredient violations (harmful or excessive amounts)
+  const ingredientViolations = ingredientSafetyResult?.ingredientViolations || [];
+  const ingredientSafetyList = ingredientSafetyResult?.ingredientSafetyList || [];
+
+  // Weight & Tampering checks
   const isScaleViolated = Boolean(mpeAuditResult?.isShortWeight || mpeAuditResult?.isViolated);
   const isTampered = Boolean(tamperResult?.hasTampering);
-  
-  const totalDefectsCount = notCorrectRules.length + (isTampered ? 1 : 0) + (isScaleViolated ? 1 : 0);
+  const qrViolations = qrResult?.qrViolations || [];
+
+  // Total Defects Count
+  const totalDefectsCount = 
+    notCorrectRules.length + 
+    ingredientViolations.length + 
+    (isTampered ? 1 : 0) + 
+    (isScaleViolated ? 1 : 0) +
+    qrViolations.length;
+
   const isFullyCompliant = totalDefectsCount === 0 && rules.length > 0;
 
-  const totalRules = rules.length || 5;
-  const passedCount = correctlyDoneRules.length + (!isScaleViolated && mpeAuditResult ? 1 : 0);
-  const complianceScore = Math.round((correctlyDoneRules.length / totalRules) * 100);
+  const totalRules = rules.length || 6;
+  const passedCount = correctlyDoneRules.length + (!isScaleViolated && mpeAuditResult ? 1 : 0) + (ingredientViolations.length === 0 && ingredientSafetyList.length > 0 ? 1 : 0);
+  const complianceScore = Math.max(0, Math.round(((rules.length - notCorrectRules.length) / Math.max(1, rules.length)) * 100));
 
   const getRuleIcon = (id) => {
     switch (id) {
       case 'mrp': return <IndianRupee className="w-4 h-4 text-emerald-600" />;
       case 'net_qty': return <Scale className="w-4 h-4 text-blue-600" />;
       case 'mfg_date': return <Calendar className="w-4 h-4 text-amber-600" />;
+      case 'exp_date': return <Clock className="w-4 h-4 text-rose-600" />;
       case 'address': return <Building2 className="w-4 h-4 text-purple-600" />;
       case 'consumer_care': return <Headphones className="w-4 h-4 text-indigo-600" />;
       default: return <CheckCircle2 className="w-4 h-4 text-slate-500" />;
@@ -92,10 +112,10 @@ export default function ForensicMatrixDeck({
   return (
     <div className="cyber-card rounded-2xl p-4 sm:p-5 flex flex-col gap-4 relative">
       
-      {/* 1. TOP RAID COMPLIANCE VERDICT BANNER (Instant Visual Decision for Field Officers) */}
+      {/* 1. TOP RAID COMPLIANCE VERDICT BANNER (Instant Decision for Field Officers) */}
       <div className={`p-4 rounded-2xl border transition-all ${
         isFullyCompliant 
-          ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 shadow-sm'
+          ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300 shadow-sm'
           : 'bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 border-rose-300 shadow-md'
       }`}>
         <div className="flex items-start justify-between gap-3">
@@ -111,21 +131,21 @@ export default function ForensicMatrixDeck({
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                   {isFullyCompliant 
-                    ? '100% STATUTORY COMPLIANT PACKET' 
-                    : 'FACTORY NON-COMPLIANCE DETECTED'}
+                    ? '100% STATUTORY & FOOD SAFE PACKET' 
+                    : 'FACTORY NON-COMPLIANCE & DEFECTS DETECTED'}
                 </h2>
                 <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-full ${
                   isFullyCompliant 
                     ? 'bg-emerald-200 text-emerald-900 border border-emerald-400' 
                     : 'bg-rose-200 text-rose-900 border border-rose-400'
                 }`}>
-                  {isFullyCompliant ? '0 DEFECTS' : `${totalDefectsCount} DEFECTS IDENTIFIED`}
+                  {isFullyCompliant ? '0 DEFECTS' : `${totalDefectsCount} VIOLATIONS IDENTIFIED`}
                 </span>
               </div>
               <p className="text-xs text-slate-600 mt-0.5 font-medium">
                 {isFullyCompliant 
-                  ? 'All mandatory statutory declarations under Legal Metrology Rules, 2011 are verified and correct.'
-                  : 'Packet failed statutory requirements. Review the non-compliant items marked below.'}
+                  ? 'All mandatory statutory declarations and ingredients comply with Legal Metrology & FSSAI standards.'
+                  : 'Packet failed statutory requirements or contains harmful/excessive ingredients. Review defects below.'}
               </p>
             </div>
           </div>
@@ -139,16 +159,16 @@ export default function ForensicMatrixDeck({
         </div>
       </div>
 
-      {/* Citizen Mode Store / Location info if applicable */}
+      {/* Citizen Mode Location Input if applicable */}
       {!isOfficer && (
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs font-bold text-slate-800">
             <span className="flex items-center gap-1.5">
               <Store className="w-3.5 h-3.5 text-blue-600" />
-              <span>Retail Outlet / Factory Location</span>
+              <span>Inspection Location / Factory Godown</span>
             </span>
             <span className="text-[9px] font-mono text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
-              Inspection Site
+              Site Info
             </span>
           </div>
           <input
@@ -161,7 +181,7 @@ export default function ForensicMatrixDeck({
         </div>
       )}
 
-      {/* 2. SECTION 1: ❌ NOT CORRECTLY DONE (Statutory Defects & Violations) */}
+      {/* 2. SECTION 1: ❌ THINGS NOT CORRECTLY DONE (Statutory Non-Compliances & Health Hazards) */}
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between pb-1 border-b border-rose-200">
           <div className="flex items-center gap-2">
@@ -173,7 +193,7 @@ export default function ForensicMatrixDeck({
             </h3>
           </div>
           <span className="text-[10px] font-mono text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-            ACTION REQUIRED
+            STATUTORY DEFECTS & HAZARDS
           </span>
         </div>
 
@@ -182,52 +202,98 @@ export default function ForensicMatrixDeck({
             <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
               <div className="text-xs font-black text-emerald-950">
-                No Statutory Defects Found!
+                Zero Statutory Defects or Harmful Ingredients Found!
               </div>
               <div className="text-[11px] text-emerald-800">
-                This packet passes all statutory packaging and price transparency checks.
+                This packet completely satisfies all Legal Metrology statutory clauses and FSSAI health thresholds.
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            {/* Rule 18(2) Price Tampering Detected */}
-            {isTampered && (
+          <div className="space-y-2.5">
+            
+            {/* A. HARMFUL OR EXCESSIVE INGREDIENTS VIOLATIONS (FSSAI / Toxicological Hazards) */}
+            {ingredientViolations.map((hazard, idx) => (
               <motion.div
+                key={'hazard-' + idx}
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="p-3 rounded-xl bg-rose-50 border-2 border-rose-400 shadow-xs flex flex-col gap-2"
+                className="p-3.5 rounded-xl bg-rose-50 border-2 border-rose-400 shadow-sm flex flex-col gap-2"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2">
-                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-rose-600 text-white shrink-0 mt-0.5">
+                      {hazard.type === 'BANNED_SUBSTANCE' ? <Flame className="w-4 h-4 text-white animate-pulse" /> : <HeartCrack className="w-4 h-4 text-white" />}
+                    </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-black text-rose-950">
-                          Unauthorized Price Over-Stickering Detected
+                          {hazard.title}
                         </span>
                         <span className="text-[9px] font-mono font-bold bg-rose-600 text-white px-1.5 py-0.2 rounded">
-                          Rule 18(2) PCR
+                          {hazard.severity} RISK
                         </span>
                       </div>
-                      <p className="text-[11px] text-rose-800 font-medium mt-0.5">
-                        A higher price sticker has been affixed over the factory-printed statutory MRP.
+                      <p className="text-[11px] text-rose-900 font-medium mt-1 leading-snug">
+                        {hazard.description}
                       </p>
                     </div>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200 shrink-0">
+                    FSSAI VIOLATION
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 bg-white p-2 rounded-lg border border-rose-200 font-mono text-[11px]">
+                  <div>
+                    <span className="text-[9px] text-rose-600 block font-bold">DETECTED LEVEL</span>
+                    <span className="font-bold text-rose-950">{hazard.detected}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-500 block font-bold">LEGAL SAFE LIMIT</span>
+                    <span className="font-bold text-slate-800">{hazard.legalLimit}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* B. Rule 18(2) Price Tampering Detected */}
+            {isTampered && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-3 rounded-xl bg-amber-50 border-2 border-amber-400 shadow-xs flex flex-col gap-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-black text-amber-950">
+                          Unauthorized Price Over-Stickering Detected
+                        </span>
+                        <span className="text-[9px] font-mono font-bold bg-amber-600 text-white px-1.5 py-0.2 rounded">
+                          Rule 18(2) PCR
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-900 font-medium mt-0.5">
+                        A higher price sticker has been affixed over the factory-printed statutory MRP.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-300 shrink-0">
                     +{tamperResult.markupPercent}% MARKUP
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 bg-white p-2 rounded-lg border border-rose-200 text-center font-mono text-xs">
+                <div className="grid grid-cols-3 gap-2 bg-white p-2 rounded-lg border border-amber-200 text-center font-mono text-xs">
                   <div>
                     <span className="text-[9px] text-slate-500 block">Factory MRP</span>
                     <span className="font-bold text-slate-800">₹{tamperResult.originalPrice}</span>
                   </div>
                   <div>
-                    <span className="text-[9px] text-rose-600 block">Sticker Price</span>
-                    <span className="font-bold text-rose-700">₹{tamperResult.stickerPrice}</span>
+                    <span className="text-[9px] text-amber-700 block">Sticker Price</span>
+                    <span className="font-bold text-amber-800">₹{tamperResult.stickerPrice}</span>
                   </div>
                   <div>
                     <span className="text-[9px] text-rose-600 block">Illegal Hike</span>
@@ -237,7 +303,7 @@ export default function ForensicMatrixDeck({
               </motion.div>
             )}
 
-            {/* Section 39 Weight Shortage Detected */}
+            {/* C. Section 39 Weight Shortage Detected */}
             {isScaleViolated && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
@@ -268,7 +334,21 @@ export default function ForensicMatrixDeck({
               </motion.div>
             )}
 
-            {/* Non-compliant statutory rules */}
+            {/* D. QR Code Missing Statutory Fields */}
+            {qrViolations.map((qv, i) => (
+              <div key={'qr-viol-' + i} className="p-3 rounded-xl border border-rose-300 bg-rose-50/70 flex items-start gap-2.5">
+                <QrCode className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-rose-950">{qv.title}</span>
+                    <span className="text-[9px] font-mono text-rose-800 bg-rose-100 px-1.5 py-0.2 rounded">{qv.rule}</span>
+                  </div>
+                  <p className="text-[11px] text-rose-900 mt-0.5">{qv.detail}</p>
+                </div>
+              </div>
+            ))}
+
+            {/* E. Statutory Packaging Rule Non-Compliances (Missing MRP, Missing Mfg/Exp Date, etc.) */}
             {notCorrectRules.map((rule) => {
               const isHovered = hoveredRuleId === rule.id;
               return (
@@ -278,7 +358,7 @@ export default function ForensicMatrixDeck({
                   onMouseLeave={() => onHoverRule(null)}
                   className={`p-3 rounded-xl border transition-all ${
                     isHovered 
-                      ? 'border-rose-500 bg-rose-100/70 shadow-sm' 
+                      ? 'border-rose-500 bg-rose-100/80 shadow-sm' 
                       : 'border-rose-300 bg-rose-50/70'
                   }`}
                 >
@@ -295,6 +375,11 @@ export default function ForensicMatrixDeck({
                           <span className="text-[9px] font-mono font-bold text-rose-800 bg-rose-100 px-1.5 py-0.2 rounded border border-rose-200">
                             {rule.ruleCode}
                           </span>
+                          {rule.isOmitted && (
+                            <span className="text-[9px] font-mono font-bold bg-rose-600 text-white px-1.5 py-0.2 rounded">
+                              DECLARATION OMITTED
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-rose-900 font-medium mt-0.5">
                           {rule.defectExplanation || rule.description || 'Statutory declaration missing or improperly formatted.'}
@@ -322,7 +407,7 @@ export default function ForensicMatrixDeck({
         )}
       </div>
 
-      {/* 3. SECTION 2: ✅ CORRECTLY DONE (Compliant Statutory Declarations) */}
+      {/* 3. SECTION 2: ✅ THINGS CORRECTLY DONE (Compliant Declarations & Safe Ingredients) */}
       <div className="flex flex-col gap-2.5 mt-2">
         <div className="flex items-center justify-between pb-1 border-b border-emerald-200">
           <div className="flex items-center gap-2">
@@ -334,12 +419,34 @@ export default function ForensicMatrixDeck({
             </h3>
           </div>
           <span className="text-[10px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-            PCR 2011 VERIFIED
+            STATUTORY & HEALTH VERIFIED
           </span>
         </div>
 
         <div className="space-y-2">
-          {/* If physical weight passed */}
+          {/* A. If food safety / ingredients passed with zero harmful ingredients */}
+          {ingredientViolations.length === 0 && ingredientSafetyList.length > 0 && (
+            <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-2.5">
+              <div className="p-1.5 rounded-lg bg-emerald-100 border border-emerald-200 text-emerald-700 shrink-0 mt-0.5">
+                <FlaskConical className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black text-emerald-950">
+                    Ingredients & Additives Safety Verified
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-200">
+                    FSSAI & ICMR Compliant
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-900 mt-0.5">
+                  Sugar, sodium, saturated fats and additives are within safe permissible health limits. Zero prohibited carcinogenic additives detected.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* B. Physical weight passed */}
           {!isScaleViolated && mpeAuditResult && (
             <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-start gap-2.5">
               <div className="p-1.5 rounded-lg bg-emerald-100 border border-emerald-200 text-emerald-700 shrink-0 mt-0.5">
@@ -361,7 +468,7 @@ export default function ForensicMatrixDeck({
             </div>
           )}
 
-          {/* Compliant Rules */}
+          {/* C. Compliant Rules */}
           {correctlyDoneRules.map((rule) => {
             const isHovered = hoveredRuleId === rule.id;
             const isEditing = editingRuleId === rule.id;
@@ -380,7 +487,7 @@ export default function ForensicMatrixDeck({
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2 flex-1 min-w-0">
                     <div className="p-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      {getRuleIcon(rule.id)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -446,7 +553,7 @@ export default function ForensicMatrixDeck({
                     title="Click to edit transcribed snippet"
                   >
                     <span className="truncate">
-                      <span className="text-slate-400 mr-1">Verified Text:</span>
+                      <span className="text-slate-400 mr-1">Verified Declaration:</span>
                       <span className="text-slate-800 font-semibold">{rule.extractedText || 'Declared properly'}</span>
                     </span>
                     <Edit3 className="w-3 h-3 text-slate-400 group-hover/snippet:text-blue-600 ml-1 shrink-0" />
@@ -458,8 +565,108 @@ export default function ForensicMatrixDeck({
         </div>
       </div>
 
-      {/* 4. LABORATORY / FACTORY SCALE AUDIT (Schedule I MPE Tolerance) */}
+      {/* 4. INGREDIENTS & NUTRITIONAL HEALTH SAFETY BREAKDOWN CARD */}
       <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5 shadow-2xs mt-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
+            <FlaskConical className="w-4 h-4 text-blue-600" />
+            <span>Ingredients & Food Safety Analysis (FSSAI)</span>
+          </div>
+          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+            ingredientViolations.length === 0 
+              ? 'bg-emerald-100 text-emerald-800' 
+              : 'bg-rose-100 text-rose-800'
+          }`}>
+            {ingredientViolations.length === 0 ? '✓ INGREDIENTS SAFE' : `⚠️ ${ingredientViolations.length} HAZARDS FLAGGED`}
+          </span>
+        </div>
+
+        {/* Nutritional & Ingredient Table */}
+        <div className="space-y-1.5">
+          {ingredientSafetyList.map((item, idx) => (
+            <div 
+              key={'ing-' + idx}
+              className={`p-2 rounded-lg border flex items-center justify-between text-xs font-mono ${
+                item.status === 'HARMFUL_EXCESSIVE'
+                  ? 'bg-rose-50 border-rose-300 text-rose-950'
+                  : item.status === 'ELEVATED'
+                  ? 'bg-amber-50 border-amber-300 text-amber-950'
+                  : 'bg-white border-slate-200 text-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${
+                  item.status === 'HARMFUL_EXCESSIVE' ? 'bg-rose-600 animate-ping' : (item.status === 'ELEVATED' ? 'bg-amber-500' : 'bg-emerald-500')
+                }`} />
+                <div>
+                  <span className="font-bold block text-slate-900">{item.name}</span>
+                  <span className="text-[10px] text-slate-500">{item.risk}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`font-black block ${item.status === 'HARMFUL_EXCESSIVE' ? 'text-rose-700' : 'text-slate-900'}`}>
+                  {item.amount}
+                </span>
+                <span className="text-[9px] text-slate-400">Limit: {item.limit}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 5. QR CODE FORENSIC VERIFICATION CARD */}
+      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5 shadow-2xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
+            <QrCode className="w-4 h-4 text-blue-600" />
+            <span>Statutory QR Code Decoding & Verification</span>
+          </div>
+          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+            qrResult?.hasQr 
+              ? 'bg-emerald-100 text-emerald-800' 
+              : 'bg-slate-200 text-slate-600'
+          }`}>
+            {qrResult?.hasQr ? '✓ QR DETECTED' : 'NO QR DETECTED'}
+          </span>
+        </div>
+
+        {qrResult?.hasQr ? (
+          <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-xs font-mono space-y-1">
+            <div className="text-slate-500 text-[10px] uppercase font-bold">Decoded Statutory Payload:</div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-100">
+              <div>
+                <span className="text-slate-400 block text-[9px]">MRP:</span>
+                <strong className="text-slate-800">{qrResult.parsedDetails?.mrp ? `₹${qrResult.parsedDetails.mrp}` : 'Missing'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[9px]">NET QUANTITY:</span>
+                <strong className="text-slate-800">{qrResult.parsedDetails?.netQty || 'Missing'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[9px]">MFG DATE:</span>
+                <strong className="text-slate-800">{qrResult.parsedDetails?.mfgDate || 'Missing'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[9px]">EXPIRY DATE:</span>
+                <strong className="text-slate-800">{qrResult.parsedDetails?.expDate || 'Missing'}</strong>
+              </div>
+            </div>
+            {qrResult.parsedDetails?.manufacturer && (
+              <div className="text-[10px] text-slate-600 pt-1 border-t border-slate-100">
+                <span className="text-slate-400">Maker: </span>
+                {qrResult.parsedDetails.manufacturer}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-[11px] text-slate-500 italic p-2 bg-white rounded-lg border border-slate-200">
+            No QR code found on packaging. Legal declarations evaluated via high-resolution Tesseract OCR.
+          </div>
+        )}
+      </div>
+
+      {/* 6. LABORATORY / FACTORY SCALE AUDIT (Schedule I MPE Tolerance) */}
+      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5 shadow-2xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
             <Scale className="w-3.5 h-3.5 text-blue-600" />

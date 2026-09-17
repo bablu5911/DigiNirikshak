@@ -1,218 +1,360 @@
+import QRCode from 'qrcode';
+
 /**
  * High-Contrast Single-Label Statutory Packaging Generator
- * Generates clear, high-resolution rear/side statutory labels for Tesseract OCR:
- * 1. 'compliant' (NutriGold 200g - All 5 mandatory PCR rules pass)
- * 2. 'mislabeled' / 'violation' (CrunchMax 75g - Missing taxes, non-standard unit, incomplete premise)
- * 3. 'tampered' / 'deceptive' (Royal Chai 250g - Printed Rs. 120 overwritten by Rs. 150 sticker + 30g short weight)
+ * Generates realistic packaging labels with real scannable QR codes,
+ * comprehensive statutory declarations (Rule 6 PCR 2011),
+ * and food safety ingredient / nutritional panels.
  */
+
+// Draws an authentic, scannable QR code directly onto the 2D canvas
+function drawQrToCanvas(ctx, text, x, y, size = 120) {
+  try {
+    const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
+    const moduleCount = qr.modules.size;
+    const cellSize = size / moduleCount;
+
+    // White background padding
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x - 6, y - 6, size + 12, size + 12);
+    ctx.strokeStyle = '#0F172A';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 6, y - 6, size + 12, size + 12);
+
+    ctx.fillStyle = '#000000';
+    for (let r = 0; r < moduleCount; r++) {
+      for (let c = 0; c < moduleCount; c++) {
+        if (qr.modules.get(r, c)) {
+          ctx.fillRect(
+            Math.round(x + c * cellSize), 
+            Math.round(y + r * cellSize), 
+            Math.ceil(cellSize), 
+            Math.ceil(cellSize)
+          );
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error drawing QR to canvas:', e);
+  }
+}
 
 export function generateSamplePack(type = 'compliant') {
   const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 920;
+  canvas.width = 820;
+  canvas.height = 980;
   const ctx = canvas.getContext('2d');
 
-  // Base background & high-contrast border
+  // High-contrast clean white background & dark institutional border
   ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, 800, 920);
+  ctx.fillRect(0, 0, 820, 980);
   ctx.lineWidth = 4;
   ctx.strokeStyle = '#0F172A';
-  ctx.strokeRect(20, 20, 760, 880);
+  ctx.strokeRect(20, 20, 780, 940);
 
   if (type === 'compliant') {
     // -------------------------------------------------------------
-    // PRESET 1: COMPLIANT LABEL (NutriGold 200g)
+    // PRESET 1: COMPLIANT PACKET (NutriGold Whole Grain Biscuits 200g)
     // -------------------------------------------------------------
+    // Header
     ctx.fillStyle = '#1E3A8A';
-    ctx.fillRect(24, 24, 752, 90);
+    ctx.fillRect(24, 24, 772, 85);
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 30px Arial, sans-serif';
+    ctx.font = 'bold 28px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('NUTRIGOLD - MANDATORY DECLARATIONS', 400, 80);
+    ctx.fillText('NUTRIGOLD - STATUTORY & NUTRITION PANEL', 410, 75);
 
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 18px Arial, sans-serif';
+    ctx.font = 'bold 16px Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('STATUTORY DETAILS UNDER PACKAGED COMMODITIES RULES, 2011', 50, 155);
+    ctx.fillText('STATUTORY DECLARATIONS UNDER LEGAL METROLOGY & FSSAI', 50, 145);
 
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(50, 170);
-    ctx.lineTo(750, 170);
+    ctx.moveTo(50, 155);
+    ctx.lineTo(770, 155);
     ctx.stroke();
 
-    // Rule 1: MRP
+    // Rule 1: MRP & Taxes
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Maximum Retail Price (MRP):', 50, 225);
-    ctx.font = 'bold 30px Arial, sans-serif';
-    ctx.fillText('MRP: Rs. 35.00 (incl. of all taxes)', 50, 268);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Maximum Retail Price (MRP):', 50, 195);
+    ctx.font = 'bold 26px Arial, sans-serif';
+    ctx.fillText('MRP: Rs. 35.00 (incl. of all taxes)', 50, 230);
 
     // Rule 2: Net Quantity
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Net Quantity:', 50, 340);
-    ctx.font = 'bold 30px Arial, sans-serif';
-    ctx.fillText('Net Weight: 200 g', 50, 385);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Net Quantity:', 50, 285);
+    ctx.font = 'bold 26px Arial, sans-serif';
+    ctx.fillText('Net Weight: 200 g', 50, 320);
 
-    // Rule 3: Date of Mfg
+    // Rule 3: Dates (Mfg & Best Before / Expiry)
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Manufacturing & Expiry Dates:', 50, 375);
     ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Date of Manufacture / Packing:', 50, 460);
-    ctx.font = 'bold 28px Arial, sans-serif';
-    ctx.fillText('Mfg Date: 08/2026', 50, 505);
+    ctx.fillText('Mfg Date: 08/2026  |  Best Before: 02/2027', 50, 410);
 
-    // Rule 4: Address
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Manufactured & Packed By:', 50, 595);
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('NutriGold Agro Foods Pvt. Ltd.', 50, 630);
-    ctx.font = '20px Arial, sans-serif';
-    ctx.fillText('Plot 14, Phase II, Industrial Area, Noida, UP - 201301', 50, 660);
+    // Rule 4: Manufacturer
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Manufactured & Packed By:', 50, 465);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('NutriGold Agro Foods Pvt. Ltd.', 50, 495);
+    ctx.font = '18px Arial, sans-serif';
+    ctx.fillText('Plot 14, Phase II, Industrial Area, Noida, UP - 201301', 50, 522);
+    ctx.fillText('FSSAI Lic. No. 10019051000842', 50, 548);
 
     // Rule 5: Consumer Care
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Consumer Grievance Cell:', 50, 735);
     ctx.font = 'bold 20px Arial, sans-serif';
-    ctx.fillText('Toll Free: 1800-202-4455', 50, 770);
-    ctx.fillText('Email: care@nutrigold.co.in', 50, 800);
+    ctx.fillText('Consumer Care & Grievance Cell:', 50, 600);
+    ctx.font = '18px Arial, sans-serif';
+    ctx.fillText('Toll Free: 1800-202-4455  |  Email: care@nutrigold.co.in', 50, 630);
 
-    // Barcode Mock
-    for (let x = 540; x < 740; x += 6) {
-      const w = (x % 12 === 0) ? 4 : 2;
-      ctx.fillRect(x, 740, w, 65);
+    // INGREDIENTS & NUTRITION FACTS (100% Safe & Permissible)
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(50, 660, 540, 160);
+    ctx.font = 'bold 18px Arial, sans-serif';
+    ctx.fillText('Ingredients & Nutritional Information (Per 100g):', 60, 690);
+    ctx.font = '15px Arial, sans-serif';
+    ctx.fillText('Ingredients: Whole Wheat Flour (65%), Rolled Oats (15%), Butter, Salt.', 60, 720);
+    ctx.fillText('• Added Sugar: 9.2g (Safe < 22g FSSAI Limit)', 60, 748);
+    ctx.fillText('• Sodium: 180mg (Safe < 600mg FSSAI Limit)', 60, 774);
+    ctx.fillText('• Saturated Fat: 4.2g  |  Trans Fat: 0g (Zero Trans Fat)', 60, 800);
+
+    // Real Scannable QR Code
+    const qrData = JSON.stringify({
+      mrp: '35.00',
+      hasTaxes: true,
+      netQty: '200g',
+      mfgDate: '08/2026',
+      expDate: '02/2027',
+      batchNo: 'NG-2026-B89',
+      manufacturer: 'NutriGold Agro Foods Pvt. Ltd., Plot 14, Phase II, Noida, UP - 201301',
+      consumerCare: '1800-202-4455 | care@nutrigold.co.in',
+      sugar: 9.2,
+      sodium: 180,
+      transFat: 0
+    });
+    drawQrToCanvas(ctx, qrData, 620, 660, 140);
+    ctx.font = 'bold 12px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SCAN STATUTORY QR', 690, 825);
+    ctx.textAlign = 'left';
+
+    // Barcode
+    for (let x = 50; x < 280; x += 5) {
+      const w = (x % 10 === 0) ? 3 : 1.5;
+      ctx.fillRect(x, 860, w, 50);
     }
-    ctx.font = '14px monospace';
-    ctx.fillText('8901234567890', 580, 830);
+    ctx.font = '13px monospace';
+    ctx.fillText('8901234567890 (Batch: NG-2026-B89)', 50, 925);
 
     return canvas.toDataURL('image/png');
   }
 
   if (type === 'mislabeled' || type === 'violation') {
     // -------------------------------------------------------------
-    // PRESET 2: MISLABELED PACK (CrunchMax - Missing taxes & unit)
+    // PRESET 2: MISLABELED & EXCESSIVE SODIUM PACKET (CrunchMax 75g)
     // -------------------------------------------------------------
     ctx.fillStyle = '#991B1B';
-    ctx.fillRect(24, 24, 752, 90);
+    ctx.fillRect(24, 24, 772, 85);
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 30px Arial, sans-serif';
+    ctx.font = 'bold 28px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('CRUNCHMAX - NUTRITIONAL & LEGAL PANEL', 400, 80);
+    ctx.fillText('CRUNCHMAX - NUTRITIONAL & LEGAL PANEL', 410, 75);
 
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 18px Arial, sans-serif';
+    ctx.font = 'bold 16px Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('BACK-OF-PACK INFORMATION PANEL', 50, 155);
+    ctx.fillText('BACK-OF-PACK DECLARATIONS PANEL', 50, 145);
 
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(50, 170);
-    ctx.lineTo(750, 170);
+    ctx.moveTo(50, 155);
+    ctx.lineTo(770, 155);
     ctx.stroke();
 
     // Rule 1: MRP [VIOLATION - Missing 'incl. of all taxes']
     ctx.fillStyle = '#0F172A';
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Maximum Retail Price:', 50, 225);
-    ctx.font = 'bold 30px Arial, sans-serif';
-    ctx.fillText('MRP: Rs. 30/-', 50, 268);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Maximum Retail Price:', 50, 195);
+    ctx.font = 'bold 26px Arial, sans-serif';
+    ctx.fillText('MRP: Rs. 30/-', 50, 230);
 
     // Rule 2: Quantity [VIOLATION - Missing standard metric unit 'g']
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Quantity Declaration:', 50, 340);
-    ctx.font = 'bold 30px Arial, sans-serif';
-    ctx.fillText('Weight: 75', 50, 385);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Quantity Declaration:', 50, 285);
+    ctx.font = 'bold 26px Arial, sans-serif';
+    ctx.fillText('Weight: 75', 50, 320);
 
-    // Rule 3: Date [PASS]
+    // Rule 3: Dates [PASS]
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Packaging Date:', 50, 375);
     ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Packaging Date:', 50, 460);
-    ctx.font = 'bold 28px Arial, sans-serif';
-    ctx.fillText('MFG: 07/2026', 50, 505);
+    ctx.fillText('MFG: 07/2026  |  Exp: 01/2027', 50, 410);
 
     // Rule 4: Address [VIOLATION - Incomplete Premise]
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Manufactured for:', 50, 595);
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('CrunchMax Consumer Brands', 50, 630);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('Manufactured for:', 50, 465);
+    ctx.font = 'bold 20px Arial, sans-serif';
+    ctx.fillText('CrunchMax Consumer Brands', 50, 495);
 
     // Rule 5: Consumer Care [PASS]
-    ctx.font = 'bold 22px Arial, sans-serif';
-    ctx.fillText('Feedback & Support:', 50, 735);
     ctx.font = 'bold 20px Arial, sans-serif';
-    ctx.fillText('Email: support@crunchmax.in', 50, 770);
-    ctx.fillText('Phone: +91 9876543210', 50, 800);
+    ctx.fillText('Feedback & Support:', 50, 560);
+    ctx.font = '18px Arial, sans-serif';
+    ctx.fillText('Email: support@crunchmax.in  |  Phone: +91 9876543210', 50, 590);
+
+    // INGREDIENTS & NUTRITIONAL PROFILE [VIOLATIONS: Excessive Sodium 890mg & High Palm Fat 16g]
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#DC2626';
+    ctx.strokeRect(50, 630, 540, 185);
+    ctx.fillStyle = '#DC2626';
+    ctx.font = 'bold 18px Arial, sans-serif';
+    ctx.fillText('Ingredients & Nutrition (Per 100g) [HEALTH HAZARDS]:', 60, 660);
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '15px Arial, sans-serif';
+    ctx.fillText('Ingredients: Dehydrated Potato Flakes, Refined Palm Olein, Iodised Salt.', 60, 690);
+    ctx.fillStyle = '#B91C1C';
+    ctx.font = 'bold 15px Arial, sans-serif';
+    ctx.fillText('• Sodium: 890mg (EXCEEDS FSSAI 600mg CEILING - HYPERTENSION RISK)', 60, 720);
+    ctx.fillText('• Saturated Fat: 16.0g (EXCEEDS 10g THRESHOLD - PALM OIL SATURATION)', 60, 748);
+    ctx.fillStyle = '#0F172A';
+    ctx.font = '15px Arial, sans-serif';
+    ctx.fillText('• Added Sugar: 14.5g  |  Trans Fat: 1.1%', 60, 775);
+    ctx.fillText('• Contains Permitted Synthetic Food Colour: Tartrazine (INS 102)', 60, 800);
+
+    // Embedded QR Code (Contains statutory omissions matching the packaging)
+    const qrData = JSON.stringify({
+      mrp: '30',
+      hasTaxes: false,
+      netQty: '75',
+      mfgDate: '07/2026',
+      expDate: '01/2027',
+      batchNo: 'CM-2026-X41',
+      sodium: 890,
+      sugar: 14.5
+    });
+    drawQrToCanvas(ctx, qrData, 620, 650, 140);
+    ctx.fillStyle = '#0F172A';
+    ctx.font = 'bold 12px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR (DEFECTIVE DATA)', 690, 815);
+    ctx.textAlign = 'left';
+
+    // Barcode
+    for (let x = 50; x < 280; x += 5) {
+      const w = (x % 10 === 0) ? 3 : 1.5;
+      ctx.fillRect(x, 860, w, 50);
+    }
+    ctx.font = '13px monospace';
+    ctx.fillText('8909876543210 (Batch: CM-2026-X41)', 50, 925);
 
     return canvas.toDataURL('image/png');
   }
 
   // -------------------------------------------------------------
-  // PRESET 3: TAMPERED PACK (Royal Chai - ₹120 altered to ₹150 + 30g deficit)
+  // PRESET 3: TAMPERED & BANNED ADDITIVE PACKET (Royal Chai 250g)
   // -------------------------------------------------------------
   ctx.fillStyle = '#78350F';
-  ctx.fillRect(24, 24, 752, 90);
+  ctx.fillRect(24, 24, 772, 85);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 30px Arial, sans-serif';
+  ctx.font = 'bold 28px Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('ROYAL CHAI - STATUTORY DECLARATIONS', 400, 80);
+  ctx.fillText('ROYAL CHAI - FORENSIC EVIDENCE PACKET', 410, 75);
 
   ctx.fillStyle = '#0F172A';
-  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.font = 'bold 16px Arial, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('STATUTORY DETAILS UNDER PACKAGED COMMODITIES RULES, 2011', 50, 155);
+  ctx.fillText('STATUTORY REAR PANEL (FORENSIC AUDIT TARGET)', 50, 145);
 
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(50, 170);
-  ctx.lineTo(750, 170);
+  ctx.moveTo(50, 155);
+  ctx.lineTo(770, 155);
   ctx.stroke();
 
-  // Price Tampering: Base printed price ₹120 with over-stamped Sticker price ₹150!
+  // Rule 18(2) Price Tampering: Printed MRP Rs. 120 with Rs. 150 Sticker
   ctx.fillStyle = '#0F172A';
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Retail Sale Price Declarations:', 50, 215);
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('Maximum Retail Price (Printed Factory Base):', 50, 195);
+  ctx.font = 'bold 24px Arial, sans-serif';
+  ctx.fillText('Printed MRP: Rs. 120.00 (incl. of all taxes)', 50, 230);
 
-  // Stamped base price
-  ctx.font = '22px Arial, sans-serif';
-  ctx.fillStyle = '#64748B';
-  ctx.fillText('Base Printed MRP: Rs. 120.00 (incl. of all taxes)', 50, 250);
-
-  // Sticker Overwrite Box (Tampering under Rule 18(2))
-  ctx.fillStyle = '#FEF2F2';
-  ctx.strokeStyle = '#DC2626';
+  // Sticker Overwrite Overlay
+  ctx.fillStyle = '#FEF08A';
+  ctx.strokeStyle = '#CA8A04';
   ctx.lineWidth = 2;
-  ctx.fillRect(45, 270, 520, 52);
-  ctx.strokeRect(45, 270, 520, 52);
+  ctx.fillRect(45, 255, 480, 50);
+  ctx.strokeRect(45, 255, 480, 50);
+  ctx.fillStyle = '#991B1B';
+  ctx.font = 'black 22px Arial, sans-serif';
+  ctx.fillText('⚠️ REVISED MRP STICKER: Rs. 150.00', 60, 290);
 
+  // Rule 2: Quantity [250g declared, but lab scale measures 220g -> Section 39 Violation!]
+  ctx.fillStyle = '#0F172A';
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('Net Quantity (Declared on Carton):', 50, 350);
+  ctx.font = 'bold 26px Arial, sans-serif';
+  ctx.fillText('Net Weight: 250 g', 50, 385);
+
+  // Dates
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('Batch & Packaging Date:', 50, 440);
+  ctx.font = 'bold 22px Arial, sans-serif';
+  ctx.fillText('MFG: 06/2026  |  Best Before: 12/2026', 50, 475);
+
+  // Manufacturer
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('Manufactured & Packed By:', 50, 530);
+  ctx.font = 'bold 20px Arial, sans-serif';
+  ctx.fillText('Royal Tea & Beverages Private Limited', 50, 560);
+  ctx.font = '18px Arial, sans-serif';
+  ctx.fillText('Plot 8, Industrial Estate, Guwahati, Assam - 781001', 50, 588);
+
+  // INGREDIENTS & ADULTERANTS [CRITICAL VIOLATION: Banned Toxic Dyes / Potassium Bromate]
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#DC2626';
+  ctx.strokeRect(50, 630, 540, 185);
+  ctx.fillStyle = '#DC2626';
+  ctx.font = 'bold 18px Arial, sans-serif';
+  ctx.fillText('Ingredients & Chemical Additives [TOXIC ADULTERATION]:', 60, 660);
+  ctx.fillStyle = '#0F172A';
+  ctx.font = '15px Arial, sans-serif';
+  ctx.fillText('Ingredients: CTC Leaf Tea, Added Colorant: Metanil Yellow (Prohibited Dye).', 60, 690);
   ctx.fillStyle = '#B91C1C';
   ctx.font = 'bold 15px Arial, sans-serif';
-  ctx.fillText('⚠️ REVISED STICKER APPLIED OVER BASE MRP', 60, 292);
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Sticker MRP: Rs. 150.00 (incl. of all taxes)', 60, 314);
-
-  // Declared Quantity: 250 g
+  ctx.fillText('• ADULTERANT: Metanil Yellow (BANNED INDUSTRIAL TOXIC DYE)', 60, 720);
+  ctx.fillText('• PRESERVATIVE: Potassium Bromate (BANNED CARCINOGENIC AGENT)', 60, 748);
   ctx.fillStyle = '#0F172A';
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Net Quantity:', 50, 370);
-  ctx.font = 'bold 30px Arial, sans-serif';
-  ctx.fillText('Net Weight: 250 g', 50, 410);
+  ctx.font = '15px Arial, sans-serif';
+  ctx.fillText('• Artificial Flavouring Substances declared without natural ratio.', 60, 775);
+  ctx.fillText('• Consumer Care Helpline: 1800-444-9988 | care@royalteaindia.com', 60, 800);
 
-  // Mfg Date
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Date of Packaging:', 50, 480);
-  ctx.font = 'bold 28px Arial, sans-serif';
-  ctx.fillText('PKD: 06/2026', 50, 520);
+  // Embedded QR Code (Records the price tampering & toxic dye adulteration)
+  const qrData = JSON.stringify({
+    mrp: '120',
+    stickerPrice: '150',
+    netQty: '250g',
+    mfgDate: '06/2026',
+    expDate: '12/2026',
+    batchNo: 'RC-2026-TAMPER',
+    adulterant: 'Metanil Yellow',
+    carcinogen: 'Potassium Bromate'
+  });
+  drawQrToCanvas(ctx, qrData, 620, 650, 140);
+  ctx.fillStyle = '#0F172A';
+  ctx.font = 'bold 12px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('QR CODE AUDIT', 690, 815);
+  ctx.textAlign = 'left';
 
-  // Address
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Manufactured By:', 50, 595);
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Royal Estate Tea Blenders Pvt. Ltd.', 50, 630);
-  ctx.font = '20px Arial, sans-serif';
-  ctx.fillText('Plot 28, Industrial Focal Point, Guwahati, AS - 781001', 50, 660);
-
-  // Consumer Care
-  ctx.font = 'bold 22px Arial, sans-serif';
-  ctx.fillText('Consumer Care Cell:', 50, 735);
-  ctx.font = 'bold 20px Arial, sans-serif';
-  ctx.fillText('Toll Free: 1800-444-8899 | Email: care@royalteablends.com', 50, 770);
+  // Barcode
+  for (let x = 50; x < 280; x += 5) {
+    const w = (x % 10 === 0) ? 3 : 1.5;
+    ctx.fillRect(x, 860, w, 50);
+  }
+  ctx.font = '13px monospace';
+  ctx.fillText('8905554443321 (Batch: RC-2026-TAMPER)', 50, 925);
 
   return canvas.toDataURL('image/png');
 }
