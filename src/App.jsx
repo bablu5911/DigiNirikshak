@@ -30,7 +30,7 @@ import RawTextDrawer from './components/RawTextDrawer';
 
 import { runOcr } from './utils/ocrEngine';
 import { decodeQrFromImage } from './utils/qrEngine';
-import { evaluateCompliance } from './utils/rulesEngine';
+import { evaluateCompliance, mergeEvaluatedRules } from './utils/rulesEngine';
 import { auditPhysicalScaleWeight } from './utils/mpeCalculator';
 import { generateSamplePack } from './data/sampleImages';
 import { saveAuditRecord } from './utils/historyStorage';
@@ -308,7 +308,7 @@ export default function App() {
     }
   };
 
-  // Interactive Crop & Rescan Tool
+  // Interactive Crop & Rescan Tool (Merges cropped region results with full scan)
   const handleCropAndRescan = async (croppedDataUrl) => {
     setLabelImage(croppedDataUrl);
     setIsScanning(true);
@@ -325,9 +325,11 @@ export default function App() {
       ]);
 
       const { text, confidence } = ocrData;
-      setRawOcrText(text);
+      // Append cropped region text so full-packet context is enriched
+      const combinedText = `${rawOcrText}\n--- CROPPED REGION SCAN ---\n${text}`;
+      setRawOcrText(combinedText);
       setOcrConfidence(confidence);
-      setQrResult(qrData);
+      if (qrData?.hasQr) setQrResult(qrData);
 
       const { 
         rules: evaluatedRules, 
@@ -335,11 +337,12 @@ export default function App() {
         parsedDeclaredQty: detectedQty,
         parsedDeclaredUnit: detectedUnit,
         ingredientSafetyResult: ingredientFindings
-      } = evaluateCompliance(text, qrData);
+      } = evaluateCompliance(combinedText, qrData || qrResult);
 
-      setRules(evaluatedRules);
-      setTamperResult(tamperFindings);
-      setIngredientSafetyResult(ingredientFindings);
+      // Merge newly recognized rules while preserving previous passes
+      setRules(prev => mergeEvaluatedRules(prev, evaluatedRules));
+      if (tamperFindings?.hasTampering) setTamperResult(tamperFindings);
+      if (ingredientFindings?.hasHarmfulIngredients) setIngredientSafetyResult(ingredientFindings);
 
       if (detectedQty) {
         setParsedDeclaredQty(detectedQty);
@@ -375,12 +378,36 @@ export default function App() {
     }));
   };
 
+  // Inspector Quick Snippet & Value Input Handler
   const handleSaveRuleSnippet = (ruleId, newSnippet) => {
     setRules(prev => prev.map(r => {
       if (r.id === ruleId) {
+        const lower = newSnippet.toLowerCase();
+        let newStatus = r.status;
+        let defectExpl = r.defectExplanation;
+
+        if (ruleId === 'mrp') {
+          const hasPrice = /\d+/.test(newSnippet);
+          const hasTax = lower.includes('incl') || lower.includes('tax');
+          if (hasPrice && hasTax) {
+            newStatus = 'PASS';
+            defectExpl = null;
+          } else if (hasPrice && !hasTax) {
+            newStatus = 'VIOLATION';
+            defectExpl = 'Price declared, but missing mandatory "inclusive of all taxes" clause under Rule 6(1)(e).';
+          }
+        } else if (newSnippet.trim().length > 2) {
+          // If declaration text provided, mark compliant
+          newStatus = 'PASS';
+          defectExpl = null;
+        }
+
         return {
           ...r,
-          extractedText: newSnippet
+          extractedText: newSnippet,
+          status: newStatus,
+          defectExplanation: defectExpl,
+          isOmitted: false
         };
       }
       return r;
